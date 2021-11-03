@@ -1,7 +1,7 @@
 name: Auto Release
 on:
   push:
-     branches:
+    branches:
       - 'release/**'
 
 jobs:
@@ -19,3 +19,4 @@ jobs:
         id: autorelease
         with:
           GITHUB_TOKEN: ${{ secrets.SKEDIBOT_PAT }}
+          APPLICATIONS: '[{"name":"web-admin"}, {"name":"web-video"}]'
