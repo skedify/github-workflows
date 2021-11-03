@@ -7,6 +7,12 @@ const repos = [{repo: 'github-workflows', mainBranch: 'develop'}]
 // const repos = [{repo: 'frontend-mono', mainBranch: 'develop'}]
 const owner = 'skedify'
 
+function getPrefixedThrow(prefix: string) {
+  return function throwError(message: string): never {
+    throw new Error(`${prefix}: ${message}`)
+  }
+}
+
 async function run(): Promise<void> {
   try {
     const GITHUB_TOKEN = core.getInput('GITHUB_TOKEN')
@@ -22,6 +28,8 @@ async function run(): Promise<void> {
 
     await Promise.all(
       repos.map(async ({repo, mainBranch}) => {
+        const throwError = getPrefixedThrow(repo)
+
         let releaseBranch: OctokitResponse<
           {
             ref: string
@@ -51,6 +59,10 @@ async function run(): Promise<void> {
           // branch does not exist
           // create branch
           console.log('Branch not found')
+          if (finalizeRelease)
+            throwError(
+              `Trying to finalize ${releaseVersion} while the release branch doesn't exist.`
+            )
 
           console.log('Getting main branch...')
 
@@ -80,7 +92,7 @@ async function run(): Promise<void> {
 
         if (finalizeRelease) {
           const latestSha = releaseBranch.data.object.sha
-          const stableReleaseTag = `${releaseVersion}-stable`
+          const stableReleaseTag = `${releaseVersion}`
 
           try {
             console.log('Checking release tag: ', stableReleaseTag)
@@ -91,8 +103,7 @@ async function run(): Promise<void> {
               ref: `tags/${stableReleaseTag}`
             })
             console.log('Tag already exists!')
-
-            // TODO: Tag already exists, error out.
+            throwError(`Release tag (${stableReleaseTag}) already exists!`)
           } catch (err) {
             console.log('creating tag object...')
 
