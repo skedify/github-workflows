@@ -81,7 +81,7 @@ async function run(): Promise<void> {
           await octokitInstance.triggerWorkflow({
             // TODO fix
             workflowName: 'autoreleaser.yml',
-            branchName: releaseVersion
+            branchName: releaseBranchName
           })
           // }
         }
