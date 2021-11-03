@@ -50,7 +50,7 @@ async function run(): Promise<void> {
         } catch (err) {
           // branch does not exist
           // create branch
-          console.log('Branch not found');
+          console.log('Branch not found')
 
           console.log('Getting main branch...')
 
