@@ -13,6 +13,8 @@ function getPrefixedThrow(prefix: string) {
   }
 }
 
+console.log('bla');
+
 async function run(): Promise<void> {
   try {
     const GITHUB_TOKEN = core.getInput('GITHUB_TOKEN')
