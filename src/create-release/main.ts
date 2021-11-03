@@ -59,7 +59,7 @@ async function run(): Promise<void> {
             {
               owner,
               repo,
-              ref: `refs/heads/${mainBranch}`
+              ref: `heads/${mainBranch}`
             }
           )
 
