@@ -72,8 +72,6 @@ export function createOctokitInstance({octokit, repo}: {octokit: OctokitInstance
     sha: string
     prerelease: boolean
   }) {
-    // const tagRef = `tags/${tag}`
-
     const tagName = await createTag({tag: tag, message, sha})
 
     console.log('creating release...')

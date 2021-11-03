@@ -8,6 +8,7 @@ async function run(): Promise<void> {
   try {
     const GITHUB_TOKEN = core.getInput('GITHUB_TOKEN')
     const applicationsJson = core.getInput('APPLICATIONS')
+    const stableReleaseTag = !!core.getInput('RELEASE_TAG')
 
     const applications = JSON.parse(applicationsJson) as {name: string}[]
 
@@ -28,35 +29,43 @@ async function run(): Promise<void> {
         `This action expects to be ran on \`/release/XXXX-QX\` branches, received: ${version}`
       )
 
-    applications.forEach(async ({name}) => {
-      const {stdout} = await exec.getExecOutput(
-        `git tag --list --sort=-version:refname \"${name}@${version}-rc.*\" | head -n 1`
-      )
+    await Promise.all(
+      applications.map(async ({name}) => {
+        const {stdout} = await exec.getExecOutput(
+          `git tag --list --sort=-version:refname \"${name}@${version}-rc.*\" | head -n 1`
+        )
 
-      let nextTag: string
+        let nextTag: string
 
-      if (stdout.length === 0) {
-        console.log(`${name} is not tagged yet, starting at rc.0`)
-        nextTag = `${name}@${version}-rc.0`
-      } else {
-        const currentRcVersion = stdout.split('rc.').pop()
+        if (stableReleaseTag && stdout.length === 0)
+          throw new Error(`${name}: Trying to release stable without an rc.0 version! Aborting...`)
 
-        if (typeof currentRcVersion !== 'string')
-          throw new Error('Received an invalid base branch :(')
+        if (stableReleaseTag) {
+          nextTag = `${name}@${version}`
+        } else if (stdout.length === 0) {
+          console.log(`${name} is not tagged yet, starting at rc.0`)
+          nextTag = `${name}@${version}-rc.0`
+        } else {
+          const currentRcVersion = stdout.split('rc.').pop()
 
-        const nextRcVersion = Number.parseInt(currentRcVersion) + 1
+          if (typeof currentRcVersion !== 'string')
+            throw new Error('Received an invalid base branch :(')
 
-        nextTag = `${name}@${version}-rc.${nextRcVersion}`
-      }
+          const nextRcVersion = Number.parseInt(currentRcVersion) + 1
 
-      console.log(`Going to tag ${name} with ${nextTag}`)
+          nextTag = `${name}@${version}-rc.${nextRcVersion}`
+        }
 
-      await octokitInstance.createRelease({
-        tag: nextTag,
-        sha: github.context.sha,
-        prerelease: true
+        console.log(`Going to tag ${name} with ${nextTag}`)
+
+        // TODO handle case where tag already exists for stable case.
+        await octokitInstance.createRelease({
+          tag: nextTag,
+          sha: github.context.sha,
+          prerelease: !stableReleaseTag
+        })
       })
-    })
+    )
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }

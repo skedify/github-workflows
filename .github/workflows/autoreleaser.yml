@@ -1,11 +1,17 @@
 name: Auto Release
 on:
+  workflow_dispatch:
+    inputs:
+      RELEASE_TAG:
+        description: 'Release tag'
+        required: true
   push:
     branches:
       - 'release/**'
 
 jobs:
-  autorelease:
+  rc-autorelease:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       # To use this repository's private action,
@@ -20,3 +26,22 @@ jobs:
         with:
           GITHUB_TOKEN: ${{ secrets.SKEDIBOT_PAT }}
           APPLICATIONS: '[{"name":"web-admin"}, {"name":"web-video"}]'
+
+  stable-autorelease:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      # To use this repository's private action,
+      # you must check out the repository
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Autorelease
+        uses: ./autorelease # Uses an action in the root directory
+        id: autorelease
+        with:
+          GITHUB_TOKEN: ${{ secrets.SKEDIBOT_PAT }}
+          APPLICATIONS: '[{"name":"web-admin"}, {"name":"web-video"}]'
+          # Passed in tag is actually unused
+          RELEASE_TAG: ${{ inputs.RELEASE_TAG }}
