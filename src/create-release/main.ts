@@ -38,6 +38,7 @@ async function run(): Promise<void> {
 
         try {
           //check branch
+          console.log('Checking branch...')
           releaseBranch = await octokit.request(
             'GET /repos/{owner}/{repo}/git/ref/{ref}',
             {
@@ -49,6 +50,10 @@ async function run(): Promise<void> {
         } catch (err) {
           // branch does not exist
           // create branch
+          console.log('Branch not found');
+
+          console.log('Getting main branch...')
+
           const main = await octokit.request(
             'GET /repos/{owner}/{repo}/git/ref/{ref}',
             {
@@ -59,6 +64,8 @@ async function run(): Promise<void> {
           )
 
           const {sha} = main.data.object
+
+          console.log('Creating release branch...')
 
           releaseBranch = await octokit.request(
             'POST /repos/{owner}/{repo}/git/refs',
