@@ -1,0 +1,202 @@
+name: Prepare, Build and Push Docker Image
+
+on:
+  workflow_call:
+    inputs:
+      # APPLICATION INFO
+      APPLICATION_NAME:
+        description: "Web Admin"
+        required: true
+        type: string
+      IMAGE_VERSION:
+        description: "1.11.1"
+        required: true
+        type: string
+      PACKAGE_MANAGER:
+        default: "npm"
+        description: "pnpm"
+        required: true
+        type: string
+      BUILD_COMMAND:
+        description: "pnpm build:web-admin"
+        required: false
+        type: string
+      # DOCKER
+      REGISTRY:
+        description: "skedifycore.azurecr.io"
+        required: true
+        type: string
+      IMAGE_NAME:
+        description: "admin-app-builder"
+        required: true
+        type: string
+      DOCKERFILE_LOCATION:
+        description: "./apps/web-admin/Dockerfile.production"
+        required: true
+        type: string
+      # SENTRY
+      SENTRY_ORG:
+        description: "skedify"
+        required: false
+        type: string
+      SENTRY_PROJECT:
+        description: "web-admin"
+        required: false
+        type: string
+      SENTRY_SOURCEMAP_LOCATION:
+        description: "apps/web-admin/dist/assets"
+        required: false
+        type: string
+      SENTRY_URL_PREFIX:
+        description: "~/v2/assets"
+        required: false
+        type: string
+      # SLACK
+      ENABLE_SLACK:
+        description: "Enable slack notification for this run"
+        default: false
+        required: false
+        type: boolean
+      SLACK_CHANNEL:
+        description: "feature-web"
+        required: false
+        type: string
+    secrets:
+      #  DOCKER
+      REGISTRY_USERNAME:
+        description: "ACR_GITHUB_SERVICE_PRINCIPAL_ID"
+        required: true
+      REGISTRY_PASSWORD:
+        description: "ACR_GITHUB_SERVICE_PRINCIPAL_PASS"
+        required: true
+      #  SENTRY
+      SENTRY_AUTH_TOKEN:
+        description: "WEB_ADMIN__SENTRY_AUTH_TOKEN"
+        required: false
+      # SLACK
+      SLACK_WEBHOOK:
+        description: "SLACK_WEBHOOK"
+        required: false
+
+jobs:
+  deploy-images:
+    name: Prepare, Build and Push container
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_FULL_NAME: ${{ inputs.IMAGE_NAME }}:${{ inputs.IMAGE_VERSION }}
+      IS_SENTRY_ENABLED: ${{ inputs.SENTRY_PROJECT != null && secrets.SENTRY_AUTH_TOKEN != null && inputs.SENTRY_ORG != null }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install pnpm
+        if: ${{ inputs.PACKAGE_MANAGER == 'pnpm' }}
+        run: curl -f https://get.pnpm.io/v6.16.js | node - add --global pnpm@6
+
+      - name: Setup Node.js 16
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16.x
+          cache: ${{ inputs.PACKAGE_MANAGER }}
+
+      - name: Install dependencies
+        run: ${{ inputs.PACKAGE_MANAGER }} install
+        env:
+          CYPRESS_INSTALL_BINARY: 0
+
+      - name: Build Package
+        if: ${{ inputs.BUILD_COMMAND != null }}
+        run: ${{ inputs.BUILD_COMMAND }}
+
+      - name: Login to ACR
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ inputs.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build the container image and push to registry
+        run: |
+          docker build -f '${{ inputs.DOCKERFILE_LOCATION }}' -t ${{ inputs.REGISTRY }}/${{ env.IMAGE_FULL_NAME }} .
+          docker push ${{ inputs.REGISTRY }}/${{ env.IMAGE_FULL_NAME }}
+
+      - name: Create a sentry release
+        if: ${{ env.IS_SENTRY_ENABLED }}
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ inputs.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ inputs.SENTRY_PROJECT }}
+        with:
+          sourcemaps: ${{ inputs.SENTRY_SOURCEMAP_LOCATION }}
+          version: ${{ inputs.IMAGE_VERSION }}
+          url_prefix: ${{ inputs.SENTRY_URL_PREFIX }}
+          ignore_missing: true
+          ignore_empty: true
+
+  send-slack-notifications:
+    if: ${{ inputs.ENABLE_SLACK == true }}
+    name: Send Slack Notifications
+    needs: [deploy-images]
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_FULL_NAME: ${{ inputs.IMAGE_NAME }}:${{ inputs.IMAGE_VERSION }}
+      IS_SENTRY_ENABLED: ${{ inputs.SENTRY_PROJECT != null && secrets.SENTRY_AUTH_TOKEN != null && inputs.SENTRY_ORG != null }}
+    steps:
+      - name: Image Upload Notification
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_USERNAME: GitHub Actions
+          SLACK_CHANNEL: ${{ inputs.SLACK_CHANNEL }}
+        uses: Ilshidur/action-slack@702accad29cfcfe2ee4ebebb21a3883cc1ac9a39
+        with:
+          args: "Uploaded image ${{ env.IMAGE_FULL_NAME }} 🛸."
+
+      - name: Sourcemap Notification
+        if: ${{ env.IS_SENTRY_ENABLED }}
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_USERNAME: GitHub Actions
+          SLACK_CHANNEL: ${{ inputs.SLACK_CHANNEL }}
+        uses: Ilshidur/action-slack@702accad29cfcfe2ee4ebebb21a3883cc1ac9a39
+        with:
+          args: "uploaded sentry source maps for ${{ env.IMAGE_FULL_NAME }} 🎯."
+
+      - name: Get Release Info
+        uses: actions/github-script@v5
+        id: get-release-info
+        env:
+          VERSION: ${{ inputs.IMAGE_VERSION }}
+          APPLICATION: ${{ inputs.APPLICATION_NAME }}
+        with:
+          script: |
+            const tag = context.payload.release.tag_name;
+
+            const release = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag,
+            });
+
+            function replaceMarkdown(str) {
+              const idx = str.indexOf('###');
+              if(idx === -1) return str
+
+              const nextBreak = str.indexOf('\n', idx);
+              const replaced = (str.slice(0, nextBreak) + '*' + str.slice(nextBreak)).replace('### ', '*')
+
+              return replaceMarkdown(replaced);
+            }
+
+            const { VERSION, APPLICATION } = process.env;
+
+            return "*" + APPLICATION + " - Release: " + VERSION + "*\n\n" + replaceMarkdown(release.data.body)
+          result-encoding: string
+
+      - name: Release Notes Notification
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_USERNAME: GitHub Actions
+          SLACK_CHANNEL: ${{ inputs.SLACK_CHANNEL }}
+        uses: Ilshidur/action-slack@702accad29cfcfe2ee4ebebb21a3883cc1ac9a39
+        with:
+          args: "${{ steps.get-release-info.outputs.result }}"
