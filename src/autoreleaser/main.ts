@@ -30,7 +30,7 @@ async function run(): Promise<void> {
 
     applications.forEach(async ({name}) => {
       const {stdout} = await exec.getExecOutput(
-        `git tag --list --sort=-version:refname "${name}@${version}-rc.*" | head -n 1`
+        `git tag --list --sort=-version:refname \"${name}@${version}-rc.*\" | head -n 1`
       )
 
       let nextTag: string
