@@ -134,7 +134,7 @@ jobs:
           ignore_empty: true
 
   send-slack-notifications:
-    if: inputs.ENABLE_SLACK == true && secrets.SLACK_WEBHOOK != null
+    if: inputs.ENABLE_SLACK == true
     name: Send Slack Notifications
     needs: [deploy-images]
     runs-on: ubuntu-latest
