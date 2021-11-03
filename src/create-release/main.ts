@@ -18,7 +18,7 @@ async function run(): Promise<void> {
 
     const finalizeRelease = finalizeReleaseInput === 'Y'
 
-    const releaseBranchRef = `heads/release/${releaseVersion}`
+    const releaseBranchRef = `refs/heads/release/${releaseVersion}`
 
     await Promise.all(
       repos.map(async ({repo, mainBranch}) => {
@@ -54,7 +54,7 @@ async function run(): Promise<void> {
             {
               owner,
               repo,
-              ref: `heads/${mainBranch}`
+              ref: `refs/heads/${mainBranch}`
             }
           )
 
