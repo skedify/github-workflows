@@ -109,3 +109,16 @@ export function createOctokitInstance({octokit, repo}: {octokit: OctokitInstance
     triggerWorkflow
   }
 }
+
+
+export function getPrefixedThrow(prefix: string) {
+  return function throwError(message: string): never {
+    throw new Error(`${prefix}: ${message}`)
+  }
+}
+
+export function createLogger(prefix: string) {
+  return function log(message: string): void {
+    console.log(`${prefix}: ${message}`)
+  }
+}
