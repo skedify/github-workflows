@@ -120,7 +120,7 @@ jobs:
           docker push ${{ inputs.REGISTRY }}/${{ env.IMAGE_FULL_NAME }}
 
       - name: Create a sentry release
-        if: ${{ env.IS_SENTRY_ENABLED == true }}
+        if: ${{ fromJSON(env.IS_SENTRY_ENABLED) }}
         uses: getsentry/action-release@v1
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -134,7 +134,7 @@ jobs:
           ignore_empty: true
 
   send-slack-notifications:
-    if: inputs.ENABLE_SLACK == true
+    if: ${{ inputs.ENABLE_SLACK == true }}
     name: Send Slack Notifications
     needs: [deploy-images]
     runs-on: ubuntu-latest
@@ -152,7 +152,7 @@ jobs:
           args: "Uploaded image ${{ env.IMAGE_FULL_NAME }} 🛸."
 
       - name: Sourcemap Notification
-        if: ${{ env.IS_SENTRY_ENABLED }}
+        if: ${{ fromJSON(env.IS_SENTRY_ENABLED) }}
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
           SLACK_USERNAME: GitHub Actions
