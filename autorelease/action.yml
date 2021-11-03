@@ -4,6 +4,9 @@ inputs:
   GITHUB_TOKEN:  # id of input
     description: 'GitHub Auth token'
     required: true
+  APPLICATIONS:  # id of input
+    description: 'JSON array of projects to autorelease, eg: [{"name":"web-admin"}, {"name":"web-video"}]'
+    required: true
 runs:
   using: 'node12'
   main: './dist/index.js'
