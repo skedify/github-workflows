@@ -57,7 +57,7 @@ async function run(): Promise<void> {
           if (typeof currentRcVersion !== 'string')
             throw new Error('Received an invalid base branch :(')
 
-          const nextRcVersion = Number.parseInt(currentRcVersion) + 1
+          const nextRcVersion = Number.parseInt(currentRcVersion!) + 1
 
           nextTag = `${name}@${version}-rc.${nextRcVersion}`
         }
