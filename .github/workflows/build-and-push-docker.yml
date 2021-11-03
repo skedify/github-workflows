@@ -124,6 +124,10 @@ jobs:
           docker build -f '${{ inputs.DOCKERFILE_LOCATION }}' -t ${{ inputs.REGISTRY }}/${{ env.IMAGE_FULL_NAME }} .
           docker push ${{ inputs.REGISTRY }}/${{ env.IMAGE_FULL_NAME }}
 
+      - name: Check if sentry sourcemaps are built
+        if: ${{ fromJSON(env.IS_SENTRY_ENABLED) && inputs.BUILD_COMMAND == null }}
+        run: exit 1
+
       - name: Create a sentry release
         if: ${{ fromJSON(env.IS_SENTRY_ENABLED) }}
         uses: getsentry/action-release@v1
