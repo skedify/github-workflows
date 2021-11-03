@@ -24,11 +24,11 @@ async function run(): Promise<void> {
     if (!context.ref.startsWith('refs/heads/release/'))
       throw new Error('This action expects to be ran on `/release/XXXX-QX` branches.')
 
-    const version = context.ref.split('/').pop()
+    const releaseName = context.ref.split('/').pop()
 
-    if (version?.length !== 7)
+    if (releaseName?.length !== 7)
       throw new Error(
-        `This action expects to be ran on \`/release/XXXX-QX\` branches, received: ${version}`
+        `This action expects to be ran on \`/release/XXXX-QX\` branches, received: ${releaseName}`
       )
 
     await Promise.all(
@@ -36,41 +36,47 @@ async function run(): Promise<void> {
         const log = createLogger(name)
         const throwError = getPrefixedThrow(name)
 
-        const {stdout} = await exec.getExecOutput(
-          `git tag --list --sort=-version:refname \"${name}@${version}-rc.*\" | head -n 1`
+        const {stdout: hasStableReleaseOutput} = await exec.getExecOutput(
+          `git tag --list \"${name}@${releaseName}\"`
         )
 
-        const [latestTag] = stdout.split('\n')
+        const HAS_STABLE_RELEASE = hasStableReleaseOutput.length > 0
 
-        let nextTag: string
+        const {stdout: lastestRcTagOutput} = await exec.getExecOutput(
+          `git tag --list --sort=-version:refname \"${name}@${releaseName}-rc.*\" | head -n 1`
+        )
 
-        if (IS_STABLE_RELEASE && stdout.length === 0)
+        const {stdout: lastestHotfixTagOutput} = await exec.getExecOutput(
+          `git tag --list --sort=-version:refname \"${name}@${releaseName}-hotfix.*\" | head -n 1`
+        )
+
+        const [latestRcTag] = lastestRcTagOutput.split('\n')
+        const [latestHotfixTag] = lastestHotfixTagOutput.split('\n')
+
+        if (IS_STABLE_RELEASE && latestRcTag.length === 0)
           throwError(`Trying to release stable without an rc.0 version! Aborting...`)
-        if (IS_STABLE_RELEASE) {
-          nextTag = `${name}@${version}`
-          // need to validate here if there is already a stable release.
-        } else if (latestTag.length === 0) {
-          log(`not tagged yet, starting at rc.0`)
-          nextTag = `${name}@${version}-rc.0`
-        } else {
-          const currentRcVersion = latestTag.split('rc.').pop()
 
-          if (typeof currentRcVersion !== 'string')
-            throwError(`Couldn't determine next rc version, aborting... config: ${latestTag}`)
+        if (IS_STABLE_RELEASE && HAS_STABLE_RELEASE)
+          throwError(`Trying to release stable when it already exists! Aborting...`)
 
-            // casting to string, we validate with throwError above.
-          const nextRcVersion = Number.parseInt(currentRcVersion!) + 1
+        const nextTag = IS_STABLE_RELEASE
+          ? `${name}@${releaseName}`
+          : determineNextTag({
+              type: HAS_STABLE_RELEASE ? 'hotfix' : 'rc',
+              latestTag: HAS_STABLE_RELEASE ? latestHotfixTag : latestRcTag,
+              name,
+              releaseName,
+              log,
+              throwError
+            })
 
-          nextTag = `${name}@${version}-rc.${nextRcVersion}`
-        }
-
-        log(`Tagging with ${nextTag}`);
+        log(`Tagging with ${nextTag}`)
 
         // TODO handle case where tag already exists for stable case.
         await octokitInstance.createRelease({
           tag: nextTag,
           sha: github.context.sha,
-          prerelease: !IS_STABLE_RELEASE
+          prerelease: !IS_STABLE_RELEASE && !HAS_STABLE_RELEASE
         })
       })
     )
@@ -80,3 +86,48 @@ async function run(): Promise<void> {
 }
 
 run()
+
+function determineNextTag({
+  type,
+  latestTag,
+  name,
+  releaseName,
+  log,
+  throwError
+}: {
+  type: 'rc' | 'hotfix'
+  latestTag: string
+  name: string
+  releaseName: string
+  log: (message: string) => void
+  throwError: (message: string) => never
+}) {
+  if (latestTag.length === 0) {
+    log(`not tagged yet, starting at ${type}.0`)
+    return createTag({name, releaseName, type, version: 0})
+  } else {
+    const currentVersion = latestTag.split(`${type}.`).pop()
+
+    if (typeof currentVersion !== 'string')
+      throwError(`Couldn't determine next ${type} version, aborting... config: ${latestTag}`)
+
+    // casting to string, we validate with throwError above.
+    const nextVersion = Number.parseInt(currentVersion!) + 1
+
+    return createTag({name, releaseName, type, version: nextVersion})
+  }
+}
+
+function createTag({
+  name,
+  releaseName,
+  type,
+  version
+}: {
+  name: string
+  releaseName: string
+  type: 'rc' | 'hotfix'
+  version: number
+}) {
+  return `${name}@${releaseName}-${type}.${version}`
+}
