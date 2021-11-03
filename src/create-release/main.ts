@@ -23,8 +23,6 @@ async function run(): Promise<void> {
 
     const finalizeRelease = finalizeReleaseInput === 'Y'
 
-    const releaseBranchRef = `heads/release/${releaseVersion}`
-
     await Promise.all(
       repos.map(async ({repo, mainBranch}) => {
         const throwError = getPrefixedThrow(repo)
@@ -47,7 +45,7 @@ async function run(): Promise<void> {
         try {
           //check branch
           console.log('Checking branch...')
-          releaseBranch = await octokitInstance.getTagOrBranch(releaseBranchRef)
+          releaseBranch = await octokitInstance.getBranch(`release/${releaseVersion}`)
         } catch (err) {
           // branch does not exist
           // create branch
@@ -58,35 +56,28 @@ async function run(): Promise<void> {
             )
 
           console.log('Getting main branch...')
-          const main = await octokitInstance.getTagOrBranch(
-            `heads/${mainBranch}`
-          )
-
-          const {sha} = main.data.object
+          const main = await octokitInstance.getBranch(mainBranch)
 
           console.log('Creating release branch...')
           releaseBranch = await octokitInstance.createBranch({
-            ref: `refs/tags/${releaseVersion}`,
-            sha
+            branchName: releaseVersion,
+            sha: main.data.object.sha
           })
         }
 
         if (finalizeRelease) {
-          const latestSha = releaseBranch.data.object.sha
-          const stableReleaseTag = `${releaseVersion}`
-
           try {
-            console.log('Checking release tag: ', stableReleaseTag)
+            console.log('Checking release tag: ', releaseVersion)
 
-            await octokitInstance.getTagOrBranch(`tags/${stableReleaseTag}`)
+            await octokitInstance.getTag(releaseVersion)
 
             console.log('Tag already exists!')
-            throwError(`Release tag (${stableReleaseTag}) already exists!`)
+            throwError(`Release tag (${releaseVersion}) already exists!`)
           } catch (err) {
             octokitInstance.createRelease({
-              tag: stableReleaseTag,
-              message: stableReleaseTag,
-              sha: latestSha,
+              tag: releaseVersion,
+              message: releaseVersion,
+              sha: releaseBranch.data.object.sha,
               prerelease: false
             })
           }

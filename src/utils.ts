@@ -11,13 +11,7 @@ type OctokitInstance = Octokit &
 
 const owner = 'skedify'
 
-export function createOctokitInstance({
-  octokit,
-  repo
-}: {
-  octokit: OctokitInstance
-  repo: string
-}) {
+export function createOctokitInstance({octokit, repo}: {octokit: OctokitInstance; repo: string}) {
   function getTagOrBranch(ref: string) {
     return octokit.request('GET /repos/{owner}/{repo}/git/ref/{ref}', {
       owner,
@@ -26,37 +20,34 @@ export function createOctokitInstance({
     })
   }
 
-  async function createBranch({sha, ref}: {sha: string; ref: string}) {
+  function getTag(tagName: string) {
+    return getTagOrBranch(`tags/${tagName}`)
+  }
+
+  function getBranch(branchName: string) {
+    return getTagOrBranch(`heads/${branchName}`)
+  }
+
+  async function createBranch({sha, branchName}: {sha: string; branchName: string}) {
     return octokit.request('POST /repos/{owner}/{repo}/git/refs', {
       owner,
       repo,
-      ref,
+      ref: `refs/heads/${branchName}`,
       sha
     })
   }
 
-  async function createTag({
-    tag,
-    message,
-    sha
-  }: {
-    tag: string
-    message: string
-    sha: string
-  }) {
+  async function createTag({tag, message, sha}: {tag: string; message: string; sha: string}) {
     console.log('creating tag object...')
 
-    const tagObject = await octokit.request(
-      'POST /repos/{owner}/{repo}/git/tags',
-      {
-        owner,
-        repo,
-        tag,
-        message,
-        object: sha,
-        type: 'commit'
-      }
-    )
+    const tagObject = await octokit.request('POST /repos/{owner}/{repo}/git/tags', {
+      owner,
+      repo,
+      tag,
+      message,
+      object: sha,
+      type: 'commit'
+    })
 
     console.log('creating tag...')
     // create actual git tag with tagObject.
@@ -81,7 +72,9 @@ export function createOctokitInstance({
     sha: string
     prerelease: boolean
   }) {
-    const tagName = await createTag({tag, message, sha})
+    const tagRef = `tags/${tag}`
+
+    const tagName = await createTag({tag: tagRef, message, sha})
 
     console.log('creating release...')
     // create release with tag
@@ -94,7 +87,8 @@ export function createOctokitInstance({
   }
 
   return {
-    getTagOrBranch,
+    getTag,
+    getBranch,
     createRelease,
     createBranch
   }

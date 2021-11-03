@@ -19,9 +19,7 @@ async function run(): Promise<void> {
     })
 
     if (!context.ref.startsWith('refs/heads/release/'))
-      throw new Error(
-        'This action expects to be ran on `/release/XXXX-QX` branches.'
-      )
+      throw new Error('This action expects to be ran on `/release/XXXX-QX` branches.')
 
     const version = context.ref.split('/').pop()
 
