@@ -83,13 +83,19 @@ async function run(): Promise<void> {
           const stableReleaseTag = `${releaseVersion}-stable`
 
           try {
+            console.log('Checking release tag: ', stableReleaseTag)
+
             await octokit.request('GET /repos/{owner}/{repo}/git/ref/{ref}', {
               owner,
               repo,
               ref: `tags/${stableReleaseTag}`
             })
+            console.log('Tag already exists!')
+
             // TODO: Tag already exists, error out.
           } catch (err) {
+            console.log('creating tag object...')
+
             const tagObject = await octokit.request(
               'POST /repos/{owner}/{repo}/git/tags',
               {
@@ -102,6 +108,7 @@ async function run(): Promise<void> {
               }
             )
 
+            console.log('creating tag...')
             // create actual git tag with tagObject.
             await octokit.request('POST /repos/{owner}/{repo}/git/refs', {
               owner,
@@ -110,6 +117,7 @@ async function run(): Promise<void> {
               sha: tagObject.data.sha
             })
 
+            console.log('creating release...')
             // create release with tag
             await octokit.request('POST /repos/{owner}/{repo}/releases', {
               owner,
