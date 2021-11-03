@@ -35,6 +35,12 @@ async function run(): Promise<void> {
           `git tag --list --sort=-version:refname \"${name}@${version}-rc.*\" | head -n 1`
         )
 
+        console.log({ stdout, broken: stdout.split('\n') });
+
+
+
+        return
+
         let nextTag: string
 
         if (stableReleaseTag && stdout.length === 0)
