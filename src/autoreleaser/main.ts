@@ -35,11 +35,7 @@ async function run(): Promise<void> {
           `git tag --list --sort=-version:refname \"${name}@${version}-rc.*\" | head -n 1`
         )
 
-        console.log({ stdout, broken: stdout.split('\n') });
-
-
-
-        return
+        const [latestTag] = stdout.split('\n');
 
         let nextTag: string
 
@@ -48,16 +44,16 @@ async function run(): Promise<void> {
 
         if (stableReleaseTag) {
           nextTag = `${name}@${version}`
-        } else if (stdout.length === 0) {
+        } else if (latestTag.length === 0) {
           console.log(`${name} is not tagged yet, starting at rc.0`)
           nextTag = `${name}@${version}-rc.0`
         } else {
-          const currentRcVersion = stdout.split('rc.').pop()
+          const currentRcVersion = latestTag.split('rc.').pop()
 
           if (typeof currentRcVersion !== 'string')
             throw new Error('Received an invalid base branch :(')
 
-          const nextRcVersion = Number.parseInt(currentRcVersion!) + 1
+          const nextRcVersion = Number.parseInt(currentRcVersion) + 1
 
           nextTag = `${name}@${version}-rc.${nextRcVersion}`
         }
