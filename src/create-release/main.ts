@@ -113,7 +113,7 @@ async function run(): Promise<void> {
             await octokit.request('POST /repos/{owner}/{repo}/git/refs', {
               owner,
               repo,
-              ref: `tags/${tagObject.data.tag}`,
+              ref: `refs/tags/${tagObject.data.tag}`,
               sha: tagObject.data.sha
             })
 
