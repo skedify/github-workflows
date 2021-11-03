@@ -57,6 +57,11 @@ on:
         default: false
         required: false
         type: boolean
+      ENABLE_SLACK_RELEASE_NOTES:
+        description: "Enable slack message with release information"
+        default: false
+        required: false
+        type: boolean
       SLACK_CHANNEL:
         description: "feature-web"
         required: false
@@ -162,6 +167,7 @@ jobs:
           args: "uploaded sentry source maps for ${{ env.IMAGE_FULL_NAME }} 🎯."
 
       - name: Get Release Info
+        if: ${{ inputs.ENABLE_SLACK_RELEASE_NOTES == true }}
         uses: actions/github-script@v5
         id: get-release-info
         env:
@@ -193,6 +199,7 @@ jobs:
           result-encoding: string
 
       - name: Release Notes Notification
+        if: ${{ inputs.ENABLE_SLACK_RELEASE_NOTES == true }}
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
           SLACK_USERNAME: GitHub Actions
