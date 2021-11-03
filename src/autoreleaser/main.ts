@@ -8,23 +8,21 @@ async function run(): Promise<void> {
   try {
     const GITHUB_TOKEN = core.getInput('GITHUB_TOKEN')
     const applicationsJson = core.getInput('APPLICATIONS')
-    const stableReleaseTag = core.getInput('STABLE_RELEASE') || 'false'
+    const stableReleaseInput = core.getInput('STABLE_RELEASE') || 'false'
 
-    const IS_STABLE_RELEASE = stableReleaseTag === 'true'
+    const IS_STABLE_RELEASE = stableReleaseInput === 'true'
 
     const applications = JSON.parse(applicationsJson) as {name: string}[]
 
-    const context = github.context
-
     const octokitInstance = createOctokitInstance({
       octokit: github.getOctokit(GITHUB_TOKEN),
-      repo: context.repo.repo
+      repo: github.context.repo.repo
     })
 
-    if (!context.ref.startsWith('refs/heads/release/'))
+    if (!github.context.ref.startsWith('refs/heads/release/'))
       throw new Error('This action expects to be ran on `/release/XXXX-QX` branches.')
 
-    const releaseName = context.ref.split('/').pop()
+    const releaseName = github.context.ref.split('/').pop()
 
     if (releaseName?.length !== 7)
       throw new Error(
@@ -42,22 +40,23 @@ async function run(): Promise<void> {
 
         const HAS_STABLE_RELEASE = hasStableReleaseOutput.length > 0
 
+        if (IS_STABLE_RELEASE && HAS_STABLE_RELEASE)
+          throwError(`Trying to release stable when it already exists! Aborting...`)
+
         const {stdout: lastestRcTagOutput} = await exec.getExecOutput(
           `git tag --list --sort=-version:refname \"${name}@${releaseName}-rc.*\" | head -n 1`
         )
+
+        const [latestRcTag] = lastestRcTagOutput.split('\n')
+
+        if (IS_STABLE_RELEASE && latestRcTag.length === 0)
+          throwError(`Trying to release stable without an rc.0 version! Aborting...`)
 
         const {stdout: lastestHotfixTagOutput} = await exec.getExecOutput(
           `git tag --list --sort=-version:refname \"${name}@${releaseName}-hotfix.*\" | head -n 1`
         )
 
-        const [latestRcTag] = lastestRcTagOutput.split('\n')
         const [latestHotfixTag] = lastestHotfixTagOutput.split('\n')
-
-        if (IS_STABLE_RELEASE && latestRcTag.length === 0)
-          throwError(`Trying to release stable without an rc.0 version! Aborting...`)
-
-        if (IS_STABLE_RELEASE && HAS_STABLE_RELEASE)
-          throwError(`Trying to release stable when it already exists! Aborting...`)
 
         const nextTag = IS_STABLE_RELEASE
           ? `${name}@${releaseName}`
