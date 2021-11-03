@@ -4,7 +4,7 @@ import * as github from '@actions/github'
 import {OctokitResponse} from '@octokit/types'
 import {createOctokitInstance} from '../utils'
 
-const repos = [{repo: 'github-workflows', mainBranch: 'develop'}]
+const repos = [{repo: 'github-workflows', mainBranchName: 'develop'}]
 // const repos = [{repo: 'frontend-mono', mainBranch: 'develop'}]
 
 function getPrefixedThrow(prefix: string) {
@@ -24,7 +24,7 @@ async function run(): Promise<void> {
     const finalizeRelease = finalizeReleaseInput === 'Y'
 
     await Promise.all(
-      repos.map(async ({repo, mainBranch}) => {
+      repos.map(async ({ repo, mainBranchName }) => {
         const throwError = getPrefixedThrow(repo)
         const octokitInstance = createOctokitInstance({octokit, repo})
 
@@ -42,10 +42,12 @@ async function run(): Promise<void> {
           201 | 200
         >
 
+        const releaseBranchName = `release/${releaseVersion}`
+
         try {
           //check branch
           console.log('Checking branch...')
-          releaseBranch = await octokitInstance.getBranch(`release/${releaseVersion}`)
+          releaseBranch = await octokitInstance.getBranch(releaseBranchName)
         } catch (err) {
           // branch does not exist
           // create branch
@@ -56,12 +58,12 @@ async function run(): Promise<void> {
             )
 
           console.log('Getting main branch...')
-          const main = await octokitInstance.getBranch(mainBranch)
+          const mainBranch = await octokitInstance.getBranch(mainBranchName)
 
           console.log('Creating release branch...')
           releaseBranch = await octokitInstance.createBranch({
-            branchName: releaseVersion,
-            sha: main.data.object.sha
+            branchName: releaseBranchName,
+            sha: mainBranch.data.object.sha
           })
         }
 
