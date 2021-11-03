@@ -97,7 +97,7 @@ export function createOctokitInstance({octokit, repo}: {octokit: OctokitInstance
         owner,
         repo,
         workflow_id: workflowName,
-        ref: `heads/${branchName}`
+        ref: `${branchName}`
       }
     )
   }
