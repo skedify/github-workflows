@@ -7,8 +7,8 @@ inputs:
   APPLICATIONS:  # id of input
     description: 'JSON array of projects to autorelease, eg: [{"name":"web-admin"}, {"name":"web-video"}]'
     required: true
-  RELEASE_TAG:  # id of input
-    description: 'Pass in a release tag to trigger a non rc release'
+  STABLE_RELEASE:  # id of input
+    description: 'Is stable release or not'
     required: false
 runs:
   using: 'node12'

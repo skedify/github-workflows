@@ -8,7 +8,11 @@ async function run(): Promise<void> {
   try {
     const GITHUB_TOKEN = core.getInput('GITHUB_TOKEN')
     const applicationsJson = core.getInput('APPLICATIONS')
-    const stableReleaseTag = !!core.getInput('RELEASE_TAG')
+    const stableReleaseTag = core.getInput('STABLE_RELEASE') || 'false';
+
+    const IS_STABLE_RELEASE = stableReleaseTag === 'true';
+
+    console.log({ stableReleaseTag, IS_STABLE_RELEASE})
 
     const applications = JSON.parse(applicationsJson) as {name: string}[]
 
@@ -39,10 +43,10 @@ async function run(): Promise<void> {
 
         let nextTag: string
 
-        if (stableReleaseTag && stdout.length === 0)
+        if (IS_STABLE_RELEASE && stdout.length === 0)
           throw new Error(`${name}: Trying to release stable without an rc.0 version! Aborting...`)
 
-        if (stableReleaseTag) {
+        if (IS_STABLE_RELEASE) {
           nextTag = `${name}@${version}`
         } else if (latestTag.length === 0) {
           console.log(`${name} is not tagged yet, starting at rc.0`)
@@ -64,7 +68,7 @@ async function run(): Promise<void> {
         await octokitInstance.createRelease({
           tag: nextTag,
           sha: github.context.sha,
-          prerelease: !stableReleaseTag
+          prerelease: !IS_STABLE_RELEASE
         })
       })
     )
