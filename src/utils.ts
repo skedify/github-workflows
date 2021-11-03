@@ -84,10 +84,28 @@ export function createOctokitInstance({octokit, repo}: {octokit: OctokitInstance
     })
   }
 
+  async function triggerWorkflow({
+    branchName,
+    workflowName
+  }: {
+    branchName: string
+    workflowName: string
+  }) {
+    return octokit.request(
+      'POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches',
+      {
+        owner,
+        repo,
+        workflow_id: workflowName,
+        ref: `refs/heads/${branchName}`
+      }
+    )
+  }
   return {
     getTag,
     getBranch,
     createRelease,
-    createBranch
+    createBranch,
+    triggerWorkflow
   }
 }

@@ -13,7 +13,6 @@ function getPrefixedThrow(prefix: string) {
   }
 }
 
-console.log('bla');
 
 async function run(): Promise<void> {
   try {
@@ -26,7 +25,7 @@ async function run(): Promise<void> {
     const finalizeRelease = finalizeReleaseInput === 'Y'
 
     await Promise.all(
-      repos.map(async ({ repo, mainBranchName }) => {
+      repos.map(async ({repo, mainBranchName}) => {
         const throwError = getPrefixedThrow(repo)
         const octokitInstance = createOctokitInstance({octokit, repo})
 
@@ -70,21 +69,21 @@ async function run(): Promise<void> {
         }
 
         if (finalizeRelease) {
-          try {
-            console.log('Checking release tag: ', releaseVersion)
+          // try {
+          // console.log('Checking release tag: ', releaseVersion)
 
-            await octokitInstance.getTag(releaseVersion)
+          // await octokitInstance.getTag(releaseVersion)
 
-            console.log('Tag already exists!')
-            throwError(`Release tag (${releaseVersion}) already exists!`)
-          } catch (err) {
-            octokitInstance.createRelease({
-              tag: releaseVersion,
-              message: releaseVersion,
-              sha: releaseBranch.data.object.sha,
-              prerelease: false
-            })
-          }
+          // console.log('Tag already exists!')
+          // throwError(`Release tag (${releaseVersion}) already exists!`)
+          // } catch (err) {
+
+          await octokitInstance.triggerWorkflow({
+            // TODO fix
+            workflowName: 'autoreleaser',
+            branchName: releaseVersion
+          })
+          // }
         }
       })
     )
