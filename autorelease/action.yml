@@ -1,0 +1,9 @@
+name: 'Autorelease'
+description: 'Release every commit on `release/**` branches'
+inputs:
+  GITHUB_TOKEN:  # id of input
+    description: 'GitHub Auth token'
+    required: true
+runs:
+  using: 'node12'
+  main: './dist/index.js'

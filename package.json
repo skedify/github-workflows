@@ -8,7 +8,8 @@
     "format": "prettier --write '**/*.ts'",
     "format-check": "prettier --check '**/*.ts'",
     "lint": "eslint src/**/*.ts",
-    "package": "npm run package:create-release",
+    "package": "npm run package:create-release && npm run package:autorelease",
+    "package:autorelease": "ncc build lib/autoreleaser/main.js -o autorelease/dist --source-map --license licenses.txt -m ",
     "package:create-release": "ncc build lib/create-release/main.js -o create-release/dist --source-map --license licenses.txt -m ",
     "test": "jest",
     "all": "npm run build && npm run format && npm run lint && npm run package && npm test"
@@ -26,6 +27,7 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.6.0",
+    "@actions/exec": "^1.1.0",
     "@actions/github": "^5.0.0"
   },
   "devDependencies": {

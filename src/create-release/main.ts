@@ -2,10 +2,10 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import {OctokitResponse} from '@octokit/types'
+import {createOctokitInstance} from '../utils'
 
 const repos = [{repo: 'github-workflows', mainBranch: 'develop'}]
 // const repos = [{repo: 'frontend-mono', mainBranch: 'develop'}]
-const owner = 'skedify'
 
 function getPrefixedThrow(prefix: string) {
   return function throwError(message: string): never {
@@ -19,7 +19,6 @@ async function run(): Promise<void> {
     const releaseVersion = core.getInput('RELEASE_VERSION') || '2021-Q5'
     const finalizeReleaseInput = core.getInput('FINALISE_RELEASE') || 'N'
 
-    // const context = github.context
     const octokit = github.getOctokit(GITHUB_TOKEN)
 
     const finalizeRelease = finalizeReleaseInput === 'Y'
@@ -29,6 +28,7 @@ async function run(): Promise<void> {
     await Promise.all(
       repos.map(async ({repo, mainBranch}) => {
         const throwError = getPrefixedThrow(repo)
+        const octokitInstance = createOctokitInstance({octokit, repo})
 
         let releaseBranch: OctokitResponse<
           {
@@ -47,14 +47,7 @@ async function run(): Promise<void> {
         try {
           //check branch
           console.log('Checking branch...')
-          releaseBranch = await octokit.request(
-            'GET /repos/{owner}/{repo}/git/ref/{ref}',
-            {
-              owner,
-              repo,
-              ref: releaseBranchRef
-            }
-          )
+          releaseBranch = await octokitInstance.getTagOrBranch(releaseBranchRef)
         } catch (err) {
           // branch does not exist
           // create branch
@@ -65,29 +58,17 @@ async function run(): Promise<void> {
             )
 
           console.log('Getting main branch...')
-
-          const main = await octokit.request(
-            'GET /repos/{owner}/{repo}/git/ref/{ref}',
-            {
-              owner,
-              repo,
-              ref: `heads/${mainBranch}`
-            }
+          const main = await octokitInstance.getTagOrBranch(
+            `heads/${mainBranch}`
           )
 
           const {sha} = main.data.object
 
           console.log('Creating release branch...')
-
-          releaseBranch = await octokit.request(
-            'POST /repos/{owner}/{repo}/git/refs',
-            {
-              owner,
-              repo,
-              ref: `refs/${releaseBranchRef}`,
-              sha
-            }
-          )
+          releaseBranch = await octokitInstance.createBranch({
+            ref: `refs/tags/${releaseVersion}`,
+            sha
+          })
         }
 
         if (finalizeRelease) {
@@ -97,43 +78,16 @@ async function run(): Promise<void> {
           try {
             console.log('Checking release tag: ', stableReleaseTag)
 
-            await octokit.request('GET /repos/{owner}/{repo}/git/ref/{ref}', {
-              owner,
-              repo,
-              ref: `tags/${stableReleaseTag}`
-            })
+            await octokitInstance.getTagOrBranch(`tags/${stableReleaseTag}`)
+
             console.log('Tag already exists!')
             throwError(`Release tag (${stableReleaseTag}) already exists!`)
           } catch (err) {
-            console.log('creating tag object...')
-
-            const tagObject = await octokit.request(
-              'POST /repos/{owner}/{repo}/git/tags',
-              {
-                owner,
-                repo,
-                tag: stableReleaseTag,
-                message: stableReleaseTag,
-                object: latestSha,
-                type: 'commit'
-              }
-            )
-
-            console.log('creating tag...')
-            // create actual git tag with tagObject.
-            await octokit.request('POST /repos/{owner}/{repo}/git/refs', {
-              owner,
-              repo,
-              ref: `refs/tags/${tagObject.data.tag}`,
-              sha: tagObject.data.sha
-            })
-
-            console.log('creating release...')
-            // create release with tag
-            await octokit.request('POST /repos/{owner}/{repo}/releases', {
-              owner,
-              repo,
-              tag_name: tagObject.data.tag
+            octokitInstance.createRelease({
+              tag: stableReleaseTag,
+              message: stableReleaseTag,
+              sha: latestSha,
+              prerelease: false
             })
           }
         }
