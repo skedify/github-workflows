@@ -18,7 +18,7 @@ async function run(): Promise<void> {
 
     const finalizeRelease = finalizeReleaseInput === 'Y'
 
-    const releaseBranchRef = `refs/heads/release/${releaseVersion}`
+    const releaseBranchRef = `heads/release/${releaseVersion}`
 
     await Promise.all(
       repos.map(async ({repo, mainBranch}) => {
@@ -72,7 +72,7 @@ async function run(): Promise<void> {
             {
               owner,
               repo,
-              ref: releaseBranchRef,
+              ref: `refs/${releaseBranchRef}`,
               sha
             }
           )
@@ -86,7 +86,7 @@ async function run(): Promise<void> {
             await octokit.request('GET /repos/{owner}/{repo}/git/ref/{ref}', {
               owner,
               repo,
-              ref: stableReleaseTag
+              ref: `tags/${stableReleaseTag}`
             })
             // TODO: Tag already exists, error out.
           } catch (err) {
