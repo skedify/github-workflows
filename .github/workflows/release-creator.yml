@@ -1,12 +1,12 @@
-name: Create Release
+name: Release Creator
 on:
   workflow_dispatch:
     inputs:
-      release-tag:
+      release-name:
         description: 'Release tag'
         required: true
-      finalize:
-        description: 'Finalize (Y/N)'
+      finalize-release:
+        description: 'Finalize release (Y/N)'
         required: false
         default: 'N'
 
@@ -18,10 +18,10 @@ jobs:
       # you must check out the repository
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Hello world action step
-        uses: ./create-release # Uses an action in the root directory
-        id: my-release-action
-        with:
+      - name: Create releases on repo's
+        uses: ./release-creator # Uses an action in the root directory
+        env:
           GITHUB_TOKEN: ${{ secrets.SKEDIBOT_PAT }}
-          RELEASE_VERSION: ${{ github.event.inputs.release-tag  }}
-          FINALISE_RELEASE: ${{ github.event.inputs.finalize  }}
+        with:
+          release-name: ${{ github.event.inputs.release-name  }}
+          finalize-release: ${{ github.event.inputs.finalize-release  }}

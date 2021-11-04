@@ -110,7 +110,6 @@ export function createOctokitInstance({octokit, repo}: {octokit: OctokitInstance
   }
 }
 
-
 export function getPrefixedThrow(prefix: string) {
   return function throwError(message: string): never {
     throw new Error(`${prefix}: ${message}`)

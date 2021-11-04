@@ -17,19 +17,18 @@ const WORKFLOW_NAME = 'release-branch-tagger.yml'
     return
   }
 
-  const releaseVersion = core.getInput('RELEASE_VERSION')
-  const finalizeReleaseInput = getOptionalInput('FINALISE_RELEASE') || 'N'
+  const releaseName = core.getInput('release-name')
+  const finalizeReleaseInput = getOptionalInput('finalize-release') || 'N'
+  const finalizeRelease = finalizeReleaseInput === 'Y'
 
   const octokit = github.getOctokit(GITHUB_TOKEN)
-
-  const finalizeRelease = finalizeReleaseInput === 'Y'
 
   const taskResults = await Promise.allSettled(
     repos.map(async ({repo, mainBranchName}) => {
       const log = createLogger(repo)
       const octokitInstance = createOctokitInstance({octokit, repo})
 
-      const releaseBranchName = `release/${releaseVersion}`
+      const releaseBranchName = `release/${releaseName}`
 
       try {
         try {
@@ -43,7 +42,7 @@ const WORKFLOW_NAME = 'release-branch-tagger.yml'
           log('Release branch not found!')
           if (finalizeRelease)
             throw new Error(
-              `Trying to finalize ${releaseVersion} while the release branch doesn't exist, aborting...`
+              `Trying to finalize ${releaseName} while the release branch doesn't exist, aborting...`
             )
 
           log(`Getting main branch: ${mainBranchName}`)

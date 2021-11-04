@@ -1,0 +1,27 @@
+name: Release Branch Tagger
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'release/**'
+
+jobs:
+  release-branch-tagger:
+    name: Tag & Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          # Action needs all info about tags so pass fetch-depth: 0
+          fetch-depth: 0
+
+      - name: Tag & Release
+        uses: ./release-branch-tagger # Uses an action in the root directory
+        env:
+          # Use SKEDIBOT_PAT so it can trigger deploy actions from running.
+          GITHUB_TOKEN: ${{ secrets.SKEDIBOT_PAT }}
+        with:
+          applications: '[{"name":"web-admin"}, {"name":"web-video"}]'
+          is-stable-release: ${{ github.event_name == 'workflow_dispatch' }}
+

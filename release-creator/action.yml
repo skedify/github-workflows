@@ -1,16 +1,13 @@
-name: 'Hello World'
-description: 'Greet someone and record the time'
+name: 'Release Creator'
+description: 'Will loop over Skedify repos & create release branches/trigger stable release'
 inputs:
-  GITHUB_TOKEN:  # id of input
-    description: 'GitHub Auth token'
-    required: true
-  RELEASE_VERSION:  # id of input
+  release-name:  # id of input
     description: 'Release version'
     required: true
-  FINALISE_RELEASE:  # id of input
-    description: 'Y/N to create release tags'
+  finalize-release:  # id of input
+    description: 'Y/N to create stable release tags'
     required: true
-    # default: 'World'
+    default: 'N'
 runs:
   using: 'node12'
   main: './dist/index.js'

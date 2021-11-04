@@ -1,22 +1,22 @@
 {
-  "name": "typescript-action",
+  "name": "skedify-workflow-mono",
   "version": "0.0.0",
   "private": true,
-  "description": "TypeScript template action",
+  "description": "Repository that contains reusable workflows for Skedify",
   "scripts": {
     "build": "tsc",
     "format": "prettier --write '**/*.ts'",
     "format-check": "prettier --check '**/*.ts'",
     "lint": "eslint src/**/*.ts",
-    "package": "npm run package:create-release && npm run package:autorelease",
-    "package:autorelease": "ncc build lib/autoreleaser/main.js -o autorelease/dist --source-map --license licenses.txt -m ",
-    "package:create-release": "ncc build lib/create-release/main.js -o create-release/dist --source-map --license licenses.txt -m ",
-    "test": "jest",
+    "package": "npm run package:release-creator && npm run package:release-branch-tagger",
+    "package:release-branch-tagger": "ncc build lib/release-branch-tagger/main.js -o release-branch-tagger/dist --source-map --license licenses.txt -m ",
+    "package:release-creator": "ncc build lib/release-creator/main.js -o release-creator/dist --source-map --license licenses.txt -m ",
+    "test": "jest --passWithNoTests",
     "all": "npm run build && npm run format && npm run lint && npm run package && npm test"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/actions/typescript-action.git"
+    "url": "git+https://github.com/skedify/github-workflows.git"
   },
   "keywords": [
     "actions",
