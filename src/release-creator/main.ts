@@ -46,6 +46,7 @@ const WORKFLOW_NAME = 'release-branch-tagger.yml'
             )
 
           log(`Getting main branch: ${mainBranchName}`)
+          // TODO: currently we assume we can always take latest commit from main branch. This might contain unreleased changes though. Is this OK?
           const mainBranch = await octokitInstance.getBranch(mainBranchName)
 
           log(`Creating release branch: ${releaseBranchName}`)
