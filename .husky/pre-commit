@@ -1,5 +1,10 @@
 #!/bin/sh
+[ -n "$CI" ] && exit 0
+
 . "$(dirname "$0")/_/husky.sh"
 
-npm run build && npm run package
+echo 'Linting...'
+pnpm lint-staged
+
+pnpm build
 git add */dist/.

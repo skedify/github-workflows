@@ -4,15 +4,17 @@
   "private": true,
   "description": "Repository that contains reusable workflows for Skedify",
   "scripts": {
-    "build": "tsc",
-    "format": "prettier --write '**/*.ts'",
-    "format-check": "prettier --check '**/*.ts'",
-    "lint": "eslint src/**/*.ts",
-    "package": "npm run package:release-creator && npm run package:release-branch-tagger",
-    "package:release-branch-tagger": "ncc build lib/release-branch-tagger/main.js -o release-branch-tagger/dist --source-map --license licenses.txt -m ",
-    "package:release-creator": "ncc build lib/release-creator/main.js -o release-creator/dist --source-map --license licenses.txt -m ",
+    "prettier:run": "prettier --check '**/*.ts'",
+    "eslint:run": "eslint src/**/*.ts --cache",
+    "lint": "pnpm -s eslint:run &&  pnpm -s prettier:run",
+    "lint:fix": "pnpm -s eslint:run -- --fix && pnpm -s prettier:run -- --write",
+    "build": "tsc && pnpm package",
+    "package:base": "ncc build --source-map --license licenses.txt -m",
+    "package": "pnpm package:release-creator && pnpm package:release-branch-tagger",
+    "package:release-branch-tagger": "pnpm package:base -- lib/release-branch-tagger/main.js -o release-branch-tagger/dist",
+    "package:release-creator": "pnpm package:base -- lib/release-creator/main.js -o release-creator/dist",
     "test": "jest --passWithNoTests",
-    "all": "npm run build && npm run format && npm run lint && npm run package && npm test"
+    "prepare": "husky install"
   },
   "repository": {
     "type": "git",
@@ -28,19 +30,40 @@
   "dependencies": {
     "@actions/core": "^1.6.0",
     "@actions/exec": "^1.1.0",
-    "@actions/github": "^5.0.0"
+    "@actions/github": "^5.0.0",
+    "@octokit/core": "^3.5.1",
+    "@octokit/plugin-paginate-rest": "^2.17.0",
+    "@octokit/plugin-rest-endpoint-methods": "^5.13.0"
   },
   "devDependencies": {
-    "@types/node": "^16.10.5",
-    "@typescript-eslint/parser": "^5.0.0",
+    "@skedify/eslint-config": "^0.2.2",
+    "@types/node": "^16.11.6",
+    "@typescript-eslint/eslint-plugin": "^5.3.0",
+    "@typescript-eslint/parser": "^5.3.0",
     "@vercel/ncc": "^0.31.1",
+    "babel-eslint": "^10.1.0",
     "eslint": "^7.32.0",
-    "eslint-plugin-github": "^4.3.2",
-    "eslint-plugin-jest": "^25.2.2",
+    "eslint-config-react-app": "^6.0.0",
+    "eslint-plugin-cypress": "^2.12.1",
+    "eslint-plugin-flowtype": "^6.1.1",
+    "eslint-plugin-import": "^2.25.2",
+    "eslint-plugin-jsx-a11y": "^6.4.1",
+    "eslint-plugin-react": "^7.26.1",
+    "eslint-plugin-react-hooks": "^4.2.0",
+    "eslint-plugin-simple-import-sort": "^7.0.0",
+    "eslint-plugin-sort-destructure-keys": "^1.4.0",
+    "husky": "^7.0.4",
     "jest": "^27.3.1",
-    "js-yaml": "^4.1.0",
+    "lint-staged": "^11.2.6",
     "prettier": "2.4.1",
-    "ts-jest": "^27.0.5",
+    "ts-jest": "^27.0.7",
     "typescript": "^4.4.4"
+  },
+  "prettier": {
+    "printWidth": 100
+  },
+  "lint-staged": {
+    "*.{js,ts,md,yml,json}": "prettier --write",
+    "*.{ts}": "eslint --max-warnings=0 --cache --fix"
   }
 }
