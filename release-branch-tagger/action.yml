@@ -1,13 +1,10 @@
-name: 'Autorelease'
-description: 'Release every commit on `release/**` branches'
+name: 'Release Branch Tagger'
+description: 'Create a release on GitHub for every commit on `release/**` branches'
 inputs:
-  GITHUB_TOKEN:  # id of input
-    description: 'GitHub Auth token'
-    required: true
-  APPLICATIONS:  # id of input
+  applications:
     description: 'JSON array of projects to autorelease, eg: [{"name":"web-admin"}, {"name":"web-video"}]'
     required: true
-  STABLE_RELEASE:  # id of input
+  is-stable-release:
     description: 'Is stable release or not'
     required: false
 runs:
