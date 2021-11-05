@@ -1,0 +1,22 @@
+name: Get Package Info
+description: Gets JSON info of the release
+outputs:
+  json:
+    description: "JSON output of package info"
+    value: ${{ steps.set-info.outputs.result }}
+runs:
+  using: "composite"
+  steps:
+    - name: Set Info
+      uses: actions/github-script@v5
+      id: set-info
+      with:
+        script: |
+          const tag = context.payload.release.tag_name;
+          const idx = tag.lastIndexOf('@');
+
+          const pkgName = tag.substring(0, idx);
+          const version = tag.substring(idx + 1);
+          const isPrerelease = version.includes('-') && !version.includes('hotfix');
+
+          return {pkgName,version,isPrerelease}
