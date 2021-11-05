@@ -84,6 +84,7 @@ export function createOctokitInstance({
       owner,
       repo,
       tag_name: tagName,
+      name: tagName,
       prerelease,
     });
   }
