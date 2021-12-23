@@ -15,8 +15,16 @@ runs:
           const tag = context.payload.release.tag_name;
           const idx = tag.lastIndexOf('@');
 
-          const pkgName = tag.substring(0, idx);
-          const version = tag.substring(idx + 1);
-          const isPrerelease = version.includes('-') && !version.includes('hotfix');
+          if(idx === -1) {
+            const pkgName = "";
+            const isPrerelease = version.includes('-') && !version.includes('hotfix');
+            const version = tag.slice(1)
 
-          return {pkgName,version,isPrerelease}
+            return {pkgName,version,isPrerelease}
+          } else {
+            const pkgName = tag.substring(0, idx);
+            const version = tag.substring(idx + 1);
+            const isPrerelease = version.includes('-') && !version.includes('hotfix');
+
+            return {pkgName,version,isPrerelease}
+          }
