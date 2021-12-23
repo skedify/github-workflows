@@ -17,8 +17,8 @@ runs:
 
           if(idx === -1) {
             const pkgName = "";
-            const isPrerelease = version.includes('-') && !version.includes('hotfix');
             const version = tag[0] === "v" ? tag.slice(1) : tag;
+            const isPrerelease = version.includes('-') && !version.includes('hotfix');
 
             return {pkgName,version,isPrerelease}
           } else {
