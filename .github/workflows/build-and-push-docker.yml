@@ -85,6 +85,13 @@ on:
       SLACK_WEBHOOK:
         description: "SLACK_WEBHOOK"
         required: false
+      # Turbo repo integration
+      TURBO_TOKEN:
+        description: "Turbo token"
+        required: false
+      TURBO_TEAM:
+        description: "Turbo team"
+        required: false
 
 jobs:
   deploy-images:
@@ -94,11 +101,14 @@ jobs:
       IMAGE_FULL_NAME: ${{ inputs.IMAGE_NAME }}:${{ inputs.IMAGE_VERSION }}
       IS_SENTRY_ENABLED: ${{ inputs.SENTRY_PROJECT != null && secrets.SENTRY_AUTH_TOKEN != null && inputs.SENTRY_ORG != null }}
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout Repo
+        uses: actions/checkout@v2
 
       - name: Install pnpm
         if: ${{ inputs.PACKAGE_MANAGER == 'pnpm' }}
-        run: curl -f https://get.pnpm.io/v6.16.js | node - add --global pnpm@6
+        uses: pnpm/action-setup@v2.0.1
+        with:
+          version: 6
 
       - name: Setup Node.js 16
         uses: actions/setup-node@v2
@@ -116,6 +126,9 @@ jobs:
       - name: Build Package
         if: ${{ inputs.BUILD_COMMAND != null }}
         run: ${{ inputs.BUILD_COMMAND }}
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
 
       - name: Login to ACR
         uses: azure/docker-login@v1
