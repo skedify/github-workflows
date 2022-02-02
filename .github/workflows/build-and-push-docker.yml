@@ -116,6 +116,10 @@ jobs:
           node-version: 16.x
           cache: ${{ inputs.PACKAGE_MANAGER }}
 
+      - name: "PNPM: Copy .npmrc.ci to .npmrc"
+        if: ${{ inputs.PACKAGE_MANAGER == 'pnpm' }}
+        run: cp .npmrc.ci .npmrc
+
       - name: Install dependencies
         run: ${{ inputs.PACKAGE_MANAGER }} install
         env:
