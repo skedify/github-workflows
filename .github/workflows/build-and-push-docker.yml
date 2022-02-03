@@ -223,7 +223,9 @@ jobs:
 
             const { VERSION, APPLICATION } = process.env;
 
-            return "*" + APPLICATION + " - Release: " + VERSION + "*\n\n" + replaceMarkdown(release.data.body)
+            const releaseBody = release.data.body ? "\n\n" + replaceMarkdown(release.data.body) : "";
+
+            return "*" + APPLICATION + " - Release: " + VERSION + "*" + releaseBody;
           result-encoding: string
 
       - name: Release Notes Notification

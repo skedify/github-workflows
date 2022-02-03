@@ -30,6 +30,7 @@ const getOptionalInput = (name: string) => core.getInput(name) || undefined;
 
   const IS_CORRECT_BRANCH =
     currentBranch.startsWith("release/") || currentBranch.startsWith("hotfix/");
+
   if (!IS_CORRECT_BRANCH)
     throw new Error(
       "This action expects to be ran on `/release/XXXX-QX` or `/hotfix/xxx` branches."
