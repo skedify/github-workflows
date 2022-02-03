@@ -119,6 +119,9 @@ jobs:
           node-version: 16.x
           cache: ${{ inputs.PACKAGE_MANAGER }}
 
+      - name: Copy .npmrc.ci to .npmrc for runtime build
+        run: cp .npmrc.ci .npmrc
+
       - name: Install dependencies
         run: ${{ inputs.PACKAGE_MANAGER }} install
         env:
