@@ -1,12 +1,12 @@
-name: 'Release Branch Tagger'
-description: 'Create a release on GitHub for every commit on `release/**` branches'
+name: "Release Branch Tagger"
+description: "Create a release on GitHub for every commit on `release/**` or `hotfix/**` branches"
 inputs:
   applications:
     description: 'JSON array of projects to autorelease, eg: [{"name":"web-admin"}, {"name":"web-video"}]'
     required: true
   is-stable-release:
-    description: 'Is stable release or not'
+    description: "Is stable release or not"
     required: false
 runs:
-  using: 'node12'
-  main: './dist/index.js'
+  using: "node12"
+  main: "./dist/index.js"

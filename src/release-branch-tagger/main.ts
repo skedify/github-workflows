@@ -28,10 +28,16 @@ const getOptionalInput = (name: string) => core.getInput(name) || undefined;
 
   const currentBranch = github.context.ref.replace("refs/heads/", "");
 
-  if (!currentBranch.startsWith("release/"))
-    throw new Error("This action expects to be ran on `/release/XXXX-QX` branches.");
+  if (!currentBranch.startsWith("release/") || !currentBranch.startsWith("hotfix/"))
+    throw new Error(
+      "This action expects to be ran on `/release/XXXX-QX` or `/hotfix/xxx` branches."
+    );
 
-  const releaseName = currentBranch.replace("release/", "");
+  const IS_HOTFIX_BRANCH = currentBranch.startsWith("hotfix/");
+
+  const releaseName = IS_HOTFIX_BRANCH
+    ? currentBranch.replace("hotfix/", "")
+    : currentBranch.replace("release/", "");
 
   const taskResults = await Promise.allSettled(
     applications.map(async ({ name }) => {
@@ -50,11 +56,13 @@ const getOptionalInput = (name: string) => core.getInput(name) || undefined;
 
         const latestHotfixTag = await getLatestExistingTag({ name, releaseName, type: "hotfix" });
 
+        const SHOULD_USE_HOTFIX_TAG = IS_HOTFIX_BRANCH ? true : HAS_STABLE_RELEASE;
+
         const nextTag = IS_STABLE_RELEASE
           ? `${name}@${releaseName}`
           : determineNextTag({
-              type: HAS_STABLE_RELEASE ? "hotfix" : "rc",
-              latestTag: HAS_STABLE_RELEASE ? latestHotfixTag : latestRcTag,
+              type: SHOULD_USE_HOTFIX_TAG ? "hotfix" : "rc",
+              latestTag: SHOULD_USE_HOTFIX_TAG ? latestHotfixTag : latestRcTag,
               name,
               releaseName,
               log,
@@ -67,7 +75,7 @@ const getOptionalInput = (name: string) => core.getInput(name) || undefined;
           tag: nextTag,
           sha: github.context.sha,
           // Stable & hotfix releases -> !prerelease
-          prerelease: !IS_STABLE_RELEASE && !HAS_STABLE_RELEASE,
+          prerelease: !IS_STABLE_RELEASE && !SHOULD_USE_HOTFIX_TAG,
         });
       } catch (err) {
         const throwError = getPrefixedThrow(name);
