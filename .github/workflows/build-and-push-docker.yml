@@ -39,6 +39,11 @@ on:
         description: "./apps/web-admin/Dockerfile.production"
         required: true
         type: string
+      # HELM
+      CHART_NAME:
+        description: k8s Chart name"
+        required: false
+        type: string
       # SENTRY
       SENTRY_ORG:
         description: "skedify"
@@ -85,6 +90,13 @@ on:
       PUBLIC_NPM_TOKEN:
         description: "PUBLIC_NPM_TOKEN"
         required: false
+      # HELM
+      AZURE_CREDENTIALS:
+        description: "AZURE_CREDENTIALS"
+        required: false
+      CHARTMUSEUM_PASSWORD:
+        description: "CHARTMUSEUM_PASSWORD"
+        required: false
       #  SENTRY
       SENTRY_AUTH_TOKEN:
         description: "WEB_ADMIN__SENTRY_AUTH_TOKEN"
@@ -108,6 +120,7 @@ jobs:
     env:
       IMAGE_FULL_NAME: ${{ inputs.IMAGE_NAME }}:${{ inputs.IMAGE_VERSION }}
       IS_SENTRY_ENABLED: ${{ inputs.SENTRY_PROJECT != null && secrets.SENTRY_AUTH_TOKEN != null && inputs.SENTRY_ORG != null }}
+      IS_HELM_ENABLED: ${{ inputs.CHART_NAME != null && secrets.CHARTMUSEUM_PASSWORD != null && secrets.AZURE_CREDENTIALS != null }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v2
@@ -154,6 +167,32 @@ jobs:
           docker build -f '${{ inputs.DOCKERFILE_LOCATION }}' --build-arg PRIVATE_NPM_TOKEN="${{ secrets.PRIVATE_NPM_TOKEN }}" --build-arg PUBLIC_NPM_TOKEN="${{ secrets.PUBLIC_NPM_TOKEN }}" -t ${{ inputs.REGISTRY }}/${{ env.IMAGE_FULL_NAME }} .
           docker push ${{ inputs.REGISTRY }}/${{ env.IMAGE_FULL_NAME }}
 
+      # HELM DEPLOYS
+      - name: Setup helm
+        if: ${{ fromJSON(env.IS_HELM_ENABLED) }}
+        uses: azure/setup-helm@v1
+        with:
+          version: "3.*"
+
+      - name: Setup Kubernetes connection
+        if: ${{ fromJSON(env.IS_HELM_ENABLED) }}
+        uses: azure/aks-set-context@v1
+        with:
+          creds: "${{ secrets.AZURE_CREDENTIALS }}"
+          resource-group: "Development"
+          cluster-name: "SkedifyDevelopment"
+
+      - name: Package chart
+        if: ${{ fromJSON(env.IS_HELM_ENABLED) }}
+        run: |
+          helm package ./chart/${{ inputs.CHART_NAME }} --app-version ${{ inputs.IMAGE_VERSION }} --version ${{ inputs.IMAGE_VERSION }}
+
+      - name: Upload chart to ChartMuseum
+        if: ${{ fromJSON(env.IS_HELM_ENABLED) }}
+        run: |
+          curl -u skedify:${{ secrets.CHARTMUSEUM_PASSWORD }} --data-binary "@${{ inputs.CHART_NAME }}-${{ inputs.IMAGE_VERSION }}.tgz" https://chartmuseum.development.skedify.io/api/charts
+
+      # SENTRY
       - name: Check if sentry sourcemaps are built
         if: ${{ fromJSON(env.IS_SENTRY_ENABLED) && inputs.BUILD_COMMAND == null }}
         run: exit 1
