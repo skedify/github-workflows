@@ -44,6 +44,10 @@ on:
         description: k8s Chart name"
         required: false
         type: string
+      CHART_LOCATION:
+        description: k8s Chart location"
+        required: false
+        type: string
       # SENTRY
       SENTRY_ORG:
         description: "skedify"
@@ -120,7 +124,7 @@ jobs:
     env:
       IMAGE_FULL_NAME: ${{ inputs.IMAGE_NAME }}:${{ inputs.IMAGE_VERSION }}
       IS_SENTRY_ENABLED: ${{ inputs.SENTRY_PROJECT != null && secrets.SENTRY_AUTH_TOKEN != null && inputs.SENTRY_ORG != null }}
-      IS_HELM_ENABLED: ${{ inputs.CHART_NAME != null && secrets.CHARTMUSEUM_PASSWORD != null && secrets.AZURE_CREDENTIALS != null }}
+      IS_HELM_ENABLED: ${{ inputs.CHART_NAME != null && inputs.CHART_LOCATION != null && secrets.CHARTMUSEUM_PASSWORD != null && secrets.AZURE_CREDENTIALS != null }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v2
@@ -185,7 +189,7 @@ jobs:
       - name: Package chart
         if: ${{ fromJSON(env.IS_HELM_ENABLED) }}
         run: |
-          helm package ./chart/${{ inputs.CHART_NAME }} --app-version ${{ inputs.IMAGE_VERSION }} --version ${{ inputs.IMAGE_VERSION }}
+          helm package ${{ inputs.CHART_LOCATION }} --app-version ${{ inputs.IMAGE_VERSION }} --version ${{ inputs.IMAGE_VERSION }}
 
       - name: Upload chart to ChartMuseum
         if: ${{ fromJSON(env.IS_HELM_ENABLED) }}
