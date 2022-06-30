@@ -48,6 +48,11 @@ on:
         description: k8s Chart location"
         required: false
         type: string
+      AUTODEPLOY_TO_DEVELOPMENT:
+        description: "Automatically deploy helm chart to development cluster"
+        default: false
+        required: false
+        type: boolean
       # SENTRY
       SENTRY_ORG:
         description: "skedify"
@@ -178,14 +183,6 @@ jobs:
         with:
           version: "3.*"
 
-      - name: Setup Kubernetes connection
-        if: ${{ fromJSON(env.IS_HELM_ENABLED) }}
-        uses: azure/aks-set-context@v1
-        with:
-          creds: "${{ secrets.AZURE_CREDENTIALS }}"
-          resource-group: "Development"
-          cluster-name: "SkedifyDevelopment"
-
       - name: Package chart
         if: ${{ fromJSON(env.IS_HELM_ENABLED) }}
         run: |
@@ -195,6 +192,19 @@ jobs:
         if: ${{ fromJSON(env.IS_HELM_ENABLED) }}
         run: |
           curl -u skedify:${{ secrets.CHARTMUSEUM_PASSWORD }} --data-binary "@${{ inputs.CHART_NAME }}-${{ inputs.IMAGE_VERSION }}.tgz" https://chartmuseum.development.skedify.io/api/charts
+
+      - name: Setup Kubernetes connection
+        if: ${{ fromJSON(env.IS_HELM_ENABLED) && inputs.AUTODEPLOY_TO_DEVELOPMENT }}
+        uses: azure/aks-set-context@v1
+        with:
+          creds: "${{ secrets.AZURE_CREDENTIALS }}"
+          resource-group: "Development"
+          cluster-name: "SkedifyDevelopment"
+
+      - name: Deploy Helm Chart to Kubernetes
+        if: ${{ fromJSON(env.IS_HELM_ENABLED) && inputs.AUTODEPLOY_TO_DEVELOPMENT }}
+        run: |
+          helm upgrade ${{ env.CHART_NAME }} -n development ./${{ env.CHART_NAME }}-${{ inputs.IMAGE_VERSION }}.tgz --reset-values
 
       # SENTRY
       - name: Check if sentry sourcemaps are built
