@@ -204,7 +204,7 @@ jobs:
       - name: Deploy Helm Chart to Kubernetes
         if: ${{ fromJSON(env.IS_HELM_ENABLED) && inputs.AUTODEPLOY_TO_DEVELOPMENT }}
         run: |
-          helm upgrade ${{ env.CHART_NAME }} -n development ./${{ env.CHART_NAME }}-${{ inputs.IMAGE_VERSION }}.tgz --reset-values
+          helm upgrade ${{ inputs.CHART_NAME }} -n development ./${{ inputs.CHART_NAME }}-${{ inputs.IMAGE_VERSION }}.tgz --reset-values
 
       # SENTRY
       - name: Check if sentry sourcemaps are built
