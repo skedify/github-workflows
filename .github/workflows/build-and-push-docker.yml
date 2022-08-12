@@ -99,6 +99,9 @@ on:
       PUBLIC_NPM_TOKEN:
         description: "PUBLIC_NPM_TOKEN"
         required: false
+      PRIVATE_GITLAB_TOKEN:
+        description: "PRIVATE_GITLAB_TOKEN"
+        required: false
       # HELM
       AZURE_CREDENTIALS:
         description: "AZURE_CREDENTIALS"
@@ -153,6 +156,7 @@ jobs:
           NPM_CONFIG_USERCONFIG: .npmrc.ci
           PRIVATE_NPM_TOKEN: ${{ secrets.PRIVATE_NPM_TOKEN }}
           PUBLIC_NPM_TOKEN: ${{ secrets.PUBLIC_NPM_TOKEN }}
+          PRIVATE_GITLAB_TOKEN: ${{ secrets.PRIVATE_GITLAB_TOKEN }}
 
       - name: Build Package
         if: ${{ inputs.BUILD_COMMAND != null }}
@@ -162,6 +166,7 @@ jobs:
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
           PRIVATE_NPM_TOKEN: ${{ secrets.PRIVATE_NPM_TOKEN }}
           PUBLIC_NPM_TOKEN: ${{ secrets.PUBLIC_NPM_TOKEN }}
+          PRIVATE_GITLAB_TOKEN: ${{ secrets.PRIVATE_GITLAB_TOKEN }}
           NODE_OPTIONS: --max-old-space-size=6144
 
       - name: Login to ACR
@@ -173,7 +178,7 @@ jobs:
 
       - name: Build the container image and push to registry
         run: |
-          docker build -f '${{ inputs.DOCKERFILE_LOCATION }}' --build-arg PRIVATE_NPM_TOKEN="${{ secrets.PRIVATE_NPM_TOKEN }}" --build-arg PUBLIC_NPM_TOKEN="${{ secrets.PUBLIC_NPM_TOKEN }}" -t ${{ inputs.REGISTRY }}/${{ env.IMAGE_FULL_NAME }} .
+          docker build -f '${{ inputs.DOCKERFILE_LOCATION }}' --build-arg PRIVATE_GITLAB_TOKEN="${{ secrets.PRIVATE_GITLAB_TOKEN }}" --build-arg PRIVATE_NPM_TOKEN="${{ secrets.PRIVATE_NPM_TOKEN }}" --build-arg PUBLIC_NPM_TOKEN="${{ secrets.PUBLIC_NPM_TOKEN }}" -t ${{ inputs.REGISTRY }}/${{ env.IMAGE_FULL_NAME }} .
           docker push ${{ inputs.REGISTRY }}/${{ env.IMAGE_FULL_NAME }}
 
       # HELM DEPLOYS
