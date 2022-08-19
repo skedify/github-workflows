@@ -22,6 +22,11 @@ on:
         default: 6
         description: "pnpm version"
         required: false
+      NODE_VERSION:
+        type: number
+        default: 16
+        description: "node version"
+        required: false
       BUILD_COMMAND:
         description: "pnpm build:web-admin"
         required: false
@@ -135,7 +140,7 @@ jobs:
       IS_HELM_ENABLED: ${{ inputs.CHART_NAME != null && inputs.CHART_LOCATION != null && secrets.CHARTMUSEUM_PASSWORD != null && secrets.AZURE_CREDENTIALS != null }}
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install pnpm
         if: ${{ inputs.PACKAGE_MANAGER == 'pnpm' }}
@@ -143,10 +148,10 @@ jobs:
         with:
           version: ${{ inputs.PNPM_VERSION }}
 
-      - name: Setup Node.js 16
-        uses: actions/setup-node@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          node-version: 16.x
+          node-version: ${{ inputs.NODE_VERSION }}
           cache: ${{ inputs.PACKAGE_MANAGER }}
 
       - name: Install dependencies
@@ -184,7 +189,7 @@ jobs:
       # HELM DEPLOYS
       - name: Setup helm
         if: ${{ fromJSON(env.IS_HELM_ENABLED) }}
-        uses: azure/setup-helm@v1
+        uses: azure/setup-helm@v3
         with:
           version: "3.*"
 
@@ -198,11 +203,16 @@ jobs:
         run: |
           curl -u skedify:${{ secrets.CHARTMUSEUM_PASSWORD }} --data-binary "@${{ inputs.CHART_NAME }}-${{ inputs.IMAGE_VERSION }}.tgz" https://chartmuseum.development.skedify.io/api/charts
 
-      - name: Setup Kubernetes connection
+      - name: Login to Azure
         if: ${{ fromJSON(env.IS_HELM_ENABLED) && inputs.AUTODEPLOY_TO_DEVELOPMENT }}
-        uses: azure/aks-set-context@v1
+        uses: azure/login@v1
         with:
           creds: "${{ secrets.AZURE_CREDENTIALS }}"
+
+      - name: Set Kubernetes resource environment
+        if: ${{ fromJSON(env.IS_HELM_ENABLED) && inputs.AUTODEPLOY_TO_DEVELOPMENT }}
+        uses: azure/aks-set-context@v3
+        with:
           resource-group: "Development"
           cluster-name: "SkedifyDevelopment"
 
