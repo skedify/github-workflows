@@ -203,16 +203,11 @@ jobs:
         run: |
           curl -u skedify:${{ secrets.CHARTMUSEUM_PASSWORD }} --data-binary "@${{ inputs.CHART_NAME }}-${{ inputs.IMAGE_VERSION }}.tgz" https://chartmuseum.development.skedify.io/api/charts
 
-      - name: Login to Azure
+      - name: Setup Kubernetes connection
         if: ${{ fromJSON(env.IS_HELM_ENABLED) && inputs.AUTODEPLOY_TO_DEVELOPMENT }}
-        uses: azure/login@v1
+        uses: azure/aks-set-context@v1
         with:
           creds: "${{ secrets.AZURE_CREDENTIALS }}"
-
-      - name: Set Kubernetes resource environment
-        if: ${{ fromJSON(env.IS_HELM_ENABLED) && inputs.AUTODEPLOY_TO_DEVELOPMENT }}
-        uses: azure/aks-set-context@v3
-        with:
           resource-group: "Development"
           cluster-name: "SkedifyDevelopment"
 
