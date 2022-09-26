@@ -17,6 +17,16 @@ on:
         description: "pnpm"
         required: true
         type: string
+      PNPM_VERSION:
+        type: number
+        default: 6
+        description: "pnpm version"
+        required: false
+      NODE_VERSION:
+        type: number
+        default: 16
+        description: "node version"
+        required: false
       BUILD_COMMAND:
         description: "pnpm build:web-admin"
         required: false
@@ -34,6 +44,20 @@ on:
         description: "./apps/web-admin/Dockerfile.production"
         required: true
         type: string
+      # HELM
+      CHART_NAME:
+        description: k8s Chart name"
+        required: false
+        type: string
+      CHART_LOCATION:
+        description: k8s Chart location"
+        required: false
+        type: string
+      AUTODEPLOY_TO_DEVELOPMENT:
+        description: "Automatically deploy helm chart to development cluster"
+        default: false
+        required: false
+        type: boolean
       # SENTRY
       SENTRY_ORG:
         description: "skedify"
@@ -80,6 +104,16 @@ on:
       PUBLIC_NPM_TOKEN:
         description: "PUBLIC_NPM_TOKEN"
         required: false
+      PRIVATE_GITLAB_TOKEN:
+        description: "PRIVATE_GITLAB_TOKEN"
+        required: false
+      # HELM
+      AZURE_CREDENTIALS:
+        description: "AZURE_CREDENTIALS"
+        required: false
+      CHARTMUSEUM_PASSWORD:
+        description: "CHARTMUSEUM_PASSWORD"
+        required: false
       #  SENTRY
       SENTRY_AUTH_TOKEN:
         description: "WEB_ADMIN__SENTRY_AUTH_TOKEN"
@@ -103,20 +137,21 @@ jobs:
     env:
       IMAGE_FULL_NAME: ${{ inputs.IMAGE_NAME }}:${{ inputs.IMAGE_VERSION }}
       IS_SENTRY_ENABLED: ${{ inputs.SENTRY_PROJECT != null && secrets.SENTRY_AUTH_TOKEN != null && inputs.SENTRY_ORG != null }}
+      IS_HELM_ENABLED: ${{ inputs.CHART_NAME != null && inputs.CHART_LOCATION != null && secrets.CHARTMUSEUM_PASSWORD != null && secrets.AZURE_CREDENTIALS != null }}
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install pnpm
         if: ${{ inputs.PACKAGE_MANAGER == 'pnpm' }}
-        uses: pnpm/action-setup@v2.0.1
+        uses: pnpm/action-setup@v2.2.2
         with:
-          version: 6
+          version: ${{ inputs.PNPM_VERSION }}
 
-      - name: Setup Node.js 16
-        uses: actions/setup-node@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          node-version: 16.x
+          node-version: ${{ inputs.NODE_VERSION }}
           cache: ${{ inputs.PACKAGE_MANAGER }}
 
       - name: Install dependencies
@@ -126,6 +161,7 @@ jobs:
           NPM_CONFIG_USERCONFIG: .npmrc.ci
           PRIVATE_NPM_TOKEN: ${{ secrets.PRIVATE_NPM_TOKEN }}
           PUBLIC_NPM_TOKEN: ${{ secrets.PUBLIC_NPM_TOKEN }}
+          PRIVATE_GITLAB_TOKEN: ${{ secrets.PRIVATE_GITLAB_TOKEN }}
 
       - name: Build Package
         if: ${{ inputs.BUILD_COMMAND != null }}
@@ -135,6 +171,7 @@ jobs:
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
           PRIVATE_NPM_TOKEN: ${{ secrets.PRIVATE_NPM_TOKEN }}
           PUBLIC_NPM_TOKEN: ${{ secrets.PUBLIC_NPM_TOKEN }}
+          PRIVATE_GITLAB_TOKEN: ${{ secrets.PRIVATE_GITLAB_TOKEN }}
           NODE_OPTIONS: --max-old-space-size=6144
 
       - name: Login to ACR
@@ -146,9 +183,40 @@ jobs:
 
       - name: Build the container image and push to registry
         run: |
-          docker build -f '${{ inputs.DOCKERFILE_LOCATION }}' --build-arg PRIVATE_NPM_TOKEN="${{ secrets.PRIVATE_NPM_TOKEN }}" -t ${{ inputs.REGISTRY }}/${{ env.IMAGE_FULL_NAME }} .
+          docker build -f '${{ inputs.DOCKERFILE_LOCATION }}' --build-arg PRIVATE_GITLAB_TOKEN="${{ secrets.PRIVATE_GITLAB_TOKEN }}" --build-arg PRIVATE_NPM_TOKEN="${{ secrets.PRIVATE_NPM_TOKEN }}" --build-arg PUBLIC_NPM_TOKEN="${{ secrets.PUBLIC_NPM_TOKEN }}" -t ${{ inputs.REGISTRY }}/${{ env.IMAGE_FULL_NAME }} .
           docker push ${{ inputs.REGISTRY }}/${{ env.IMAGE_FULL_NAME }}
 
+      # HELM DEPLOYS
+      - name: Setup helm
+        if: ${{ fromJSON(env.IS_HELM_ENABLED) }}
+        uses: azure/setup-helm@v3
+        with:
+          version: "v3.9.3"
+
+      - name: Package chart
+        if: ${{ fromJSON(env.IS_HELM_ENABLED) }}
+        run: |
+          helm package ${{ inputs.CHART_LOCATION }} --app-version ${{ inputs.IMAGE_VERSION }} --version ${{ inputs.IMAGE_VERSION }}
+
+      - name: Upload chart to ChartMuseum
+        if: ${{ fromJSON(env.IS_HELM_ENABLED) }}
+        run: |
+          curl -u skedify:${{ secrets.CHARTMUSEUM_PASSWORD }} --data-binary "@${{ inputs.CHART_NAME }}-${{ inputs.IMAGE_VERSION }}.tgz" https://chartmuseum.development.skedify.io/api/charts
+
+      - name: Setup Kubernetes connection
+        if: ${{ fromJSON(env.IS_HELM_ENABLED) && inputs.AUTODEPLOY_TO_DEVELOPMENT }}
+        uses: azure/aks-set-context@v1
+        with:
+          creds: "${{ secrets.AZURE_CREDENTIALS }}"
+          resource-group: "Development"
+          cluster-name: "SkedifyDevelopment"
+
+      - name: Deploy Helm Chart to Kubernetes
+        if: ${{ fromJSON(env.IS_HELM_ENABLED) && inputs.AUTODEPLOY_TO_DEVELOPMENT }}
+        run: |
+          helm upgrade ${{ inputs.CHART_NAME }} -n development ./${{ inputs.CHART_NAME }}-${{ inputs.IMAGE_VERSION }}.tgz
+
+      # SENTRY
       - name: Check if sentry sourcemaps are built
         if: ${{ fromJSON(env.IS_SENTRY_ENABLED) && inputs.BUILD_COMMAND == null }}
         run: exit 1

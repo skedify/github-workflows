@@ -3,12 +3,12 @@ on:
   workflow_dispatch:
     inputs:
       release-name:
-        description: 'Release tag'
+        description: "Release tag"
         required: true
       finalize-release:
-        description: 'Finalize release (Y/N)'
+        description: "Finalize release (Y/N)"
         required: false
-        default: 'N'
+        default: "N"
 
 jobs:
   release-creator:
@@ -17,8 +17,9 @@ jobs:
     steps:
       # To use this repository's private action,
       # you must check out the repository
-      - name: Checkout
-        uses: actions/checkout@v2
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
       - name: Create releases on repo's
         uses: ./release-creator # Uses an action in the root directory
         env:
