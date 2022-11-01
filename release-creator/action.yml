@@ -1,13 +1,13 @@
-name: 'Release Creator'
-description: 'Will loop over Skedify repos & create release branches/trigger stable release'
+name: "Release Creator"
+description: "Will loop over Skedify repos & create release branches/trigger stable release"
 inputs:
-  release-name:  # id of input
-    description: 'Release version'
+  release-name: # id of input
+    description: "Release version"
     required: true
-  finalize-release:  # id of input
-    description: 'Y/N to create stable release tags'
+  finalize-release: # id of input
+    description: "Y/N to create stable release tags"
     required: true
-    default: 'N'
+    default: "N"
 runs:
-  using: 'node12'
-  main: './dist/index.js'
+  using: "node16"
+  main: "./dist/index.js"
