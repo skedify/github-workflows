@@ -18,7 +18,12 @@ import { createLogger, createOctokitInstance, getPrefixedThrow } from "../utils"
   });
 
   const currentBranch = github.context.ref.replace("refs/heads/", "");
-  const [type, name, releaseName] = currentBranch.split("/");
+  const [type, nameOrPrefix, releaseNameOrPkgName, releaseNameOrNothing] = currentBranch.split("/");
+
+  const name = nameOrPrefix.startsWith("@")
+    ? nameOrPrefix + "/" + releaseNameOrPkgName
+    : nameOrPrefix;
+  const releaseName = nameOrPrefix.startsWith("@") ? releaseNameOrNothing : releaseNameOrPkgName;
 
   if (type !== "rc" && type !== "hotfix") {
     throw new Error(
