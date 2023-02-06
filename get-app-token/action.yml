@@ -1,0 +1,24 @@
+name: Get App token"
+description: ""
+inputs:
+  app-id:
+    description: ""
+    required: true
+  installation-id:
+    description: ""
+    required: true
+  client-id:
+    description: ""
+    required: true
+  client-secret:
+    description: ""
+    required: true
+  private-key:
+    description: ""
+    required: true
+outputs:
+  token:
+    description: ""
+runs:
+  using: "node16"
+  main: "./dist/index.js"

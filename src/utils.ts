@@ -1,12 +1,6 @@
-import type { Octokit } from "@octokit/core";
-import type { PaginateInterface } from "@octokit/plugin-paginate-rest";
-import type { Api } from "@octokit/plugin-rest-endpoint-methods/dist-types/types";
+import { getOctokit } from "@actions/github";
 
-type OctokitInstance = Octokit &
-  Api & {
-    paginate: PaginateInterface;
-  };
-
+type OctokitInstance = ReturnType<typeof getOctokit>;
 const owner = "skedify";
 
 export function createOctokitInstance({
