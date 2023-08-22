@@ -202,7 +202,7 @@ jobs:
       - name: Upload chart to ChartMuseum
         if: ${{ fromJSON(env.IS_HELM_ENABLED) }}
         run: |
-          curl -u skedify:${{ secrets.CHARTMUSEUM_PASSWORD }} --data-binary "@${{ inputs.CHART_NAME }}-${{ inputs.IMAGE_VERSION }}.tgz" https://chartmuseum.development.skedify.io/api/charts
+          curl -u pexipengage:${{ secrets.CHARTMUSEUM_PASSWORD }} --data-binary "@${{ inputs.CHART_NAME }}-${{ inputs.IMAGE_VERSION }}.tgz" https://chartmuseum.development.pexipengage.com/api/charts
 
       - name: Setup Kubernetes connection
         if: ${{ fromJSON(env.IS_HELM_ENABLED) && inputs.AUTODEPLOY_TO_DEVELOPMENT }}
