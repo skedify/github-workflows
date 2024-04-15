@@ -27,13 +27,13 @@ import { createLogger, createOctokitInstance, getPrefixedThrow } from "../utils"
 
   if (type !== "rc" && type !== "hotfix") {
     throw new Error(
-      "This action expects to be ran on `/{rc,hotfix}/{APPLICATION}/{BASE_TAG}` branches."
+      "This action expects to be ran on `/{rc,hotfix}/{APPLICATION}/{BASE_TAG}` branches.",
     );
   }
 
   if (!name || !releaseName) {
     throw new Error(
-      "This action expects to be ran on `/{rc,hotfix}/{APPLICATION}/{BASE_TAG}` branches."
+      "This action expects to be ran on `/{rc,hotfix}/{APPLICATION}/{BASE_TAG}` branches.",
     );
   }
 
@@ -120,7 +120,7 @@ async function getLatestExistingTag({
   type: "rc" | "hotfix";
 }) {
   const { stdout: lastestTagOutput } = await exec.getExecOutput(
-    `git tag --list --sort=-version:refname \"${name}@${releaseName}-${type}.*\" | head -n 1`
+    `git tag --list --sort=-version:refname \"${name}@${releaseName}-${type}.*\" | head -n 1`,
   );
 
   const [latestTag] = lastestTagOutput.split("\n");

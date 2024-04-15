@@ -43,7 +43,7 @@ const WORKFLOW_NAME = "release-branch-tagger.yml";
           log("Release branch not found!");
           if (finalizeRelease)
             throw new Error(
-              `Trying to finalize ${releaseName} while the release branch doesn't exist, aborting...`
+              `Trying to finalize ${releaseName} while the release branch doesn't exist, aborting...`,
             );
 
           log(`Getting main branch: ${mainBranchName}`);
@@ -73,12 +73,12 @@ const WORKFLOW_NAME = "release-branch-tagger.yml";
         if (err instanceof Error) throwError(err.message);
         throw err;
       }
-    })
+    }),
   );
 
   const errorMessages = taskResults.reduce(
     (text, res) => (res.status === "rejected" ? text + res.reason.message + "\n" : text),
-    ""
+    "",
   );
 
   if (errorMessages) throw new Error(errorMessages);

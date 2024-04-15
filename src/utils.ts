@@ -97,7 +97,7 @@ export function createOctokitInstance({
         repo,
         workflow_id: workflowName,
         ref: `${branchName}`,
-      }
+      },
     );
   }
 

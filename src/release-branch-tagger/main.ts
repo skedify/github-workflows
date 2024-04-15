@@ -33,7 +33,7 @@ const getOptionalInput = (name: string) => core.getInput(name) || undefined;
 
   if (!IS_CORRECT_BRANCH)
     throw new Error(
-      "This action expects to be ran on `/release/XXXX-QX` or `/hotfix/xxx` branches."
+      "This action expects to be ran on `/release/XXXX-QX` or `/hotfix/xxx` branches.",
     );
 
   const IS_HOTFIX_BRANCH = currentBranch.startsWith("hotfix/");
@@ -86,12 +86,12 @@ const getOptionalInput = (name: string) => core.getInput(name) || undefined;
         if (err instanceof Error) throwError(err.message);
         throw err;
       }
-    })
+    }),
   );
 
   const errorMessages = taskResults.reduce(
     (text, res) => (res.status === "rejected" ? text + res.reason.message + "\n" : text),
-    ""
+    "",
   );
 
   if (errorMessages) throw new Error(errorMessages);
@@ -145,7 +145,7 @@ function createTag({
 
 async function hasTag({ name, releaseName }: { name: string; releaseName: string }) {
   const { stdout: tagOutput } = await exec.getExecOutput(
-    `git tag --list \"${name}@${releaseName}\"`
+    `git tag --list \"${name}@${releaseName}\"`,
   );
 
   return tagOutput.length > 0;
@@ -161,7 +161,7 @@ async function getLatestExistingTag({
   type: "rc" | "hotfix";
 }) {
   const { stdout: lastestTagOutput } = await exec.getExecOutput(
-    `git tag --list --sort=-version:refname \"${name}@${releaseName}-${type}.*\" | head -n 1`
+    `git tag --list --sort=-version:refname \"${name}@${releaseName}-${type}.*\" | head -n 1`,
   );
 
   const [latestTag] = lastestTagOutput.split("\n");

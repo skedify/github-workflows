@@ -11,5 +11,5 @@ outputs:
   token:
     description: The installation access token for the GitHub App corresponding to and the current repository.
 runs:
-  using: "node16"
+  using: "node20"
   main: "./dist/index.js"
