@@ -1,0 +1,12 @@
+name: 'Aggregate Release Notes'
+description: ''
+
+inputs:
+  cursorFile: 
+    description: 'The cursor file.'
+    required: true
+    default: changelog-cursor.json
+
+runs:
+  using: 'node20'
+  main: './dist/index.js'
