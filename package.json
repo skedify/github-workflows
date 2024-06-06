@@ -9,6 +9,7 @@
     "lint": "pnpm -s eslint:run &&  pnpm -s prettier:run",
     "lint:fix": "pnpm -s eslint:run --fix && pnpm -s prettier:run --write",
     "build": "concurrently  -n \"package:\" \"pnpm:package:*\"",
+    "package:aggregate-release-notes": "ncc build -s -m -d --license licenses.txt src/aggregate-release-notes/main.ts -o aggregate-release-notes/dist",
     "package:release-branch-tagger": "ncc build -s -m -d --license licenses.txt src/release-branch-tagger/main.ts -o release-branch-tagger/dist",
     "package:release-creator": "ncc build -s -m -d --license licenses.txt src/release-creator/main.ts -o release-creator/dist",
     "package:get-app-token": "ncc build -s -m -d --license licenses.txt src/get-app-token/main.ts -o get-app-token/dist",
@@ -31,7 +32,9 @@
     "@actions/core": "^1.10.1",
     "@actions/exec": "^1.1.1",
     "@actions/github": "^6.0.0",
-    "@octokit/auth-app": "^6.1.1"
+    "@google/generative-ai": "^0.12.0",
+    "@octokit/auth-app": "^6.1.1",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@babel/core": "^7.24.4",

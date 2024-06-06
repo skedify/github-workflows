@@ -100,3 +100,6 @@ lib/**/*
 
 .vscode
 .eslintcache
+
+# GitHub Actions Secrets (local)
+.secrets
