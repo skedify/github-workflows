@@ -11,6 +11,13 @@ import { createOrUpdateFile } from "./createOrUpdateFile";
 
 const organization = "skedify";
 const CHANGELOG_NAME = "CHANGELOG.md";
+const branchRefs = {
+  MAIN_BRANCH: core.getInput("mainBranch") || "main",
+  RELEASE_NOTE_BRANCH: "release-notes/main",
+} as const;
+const RELEASE_NOTE_REPO = core.getInput("releaseNoteRepo") || "releases";
+const BASE_PATH = core.getInput("basePath") || ".";
+const cursorFile = core.getInput("cursorFile", { required: true });
 
 const configSchema = z.record(
   z.string(),
@@ -24,7 +31,6 @@ const configSchema = z.record(
 type ConfigSchema = z.infer<typeof configSchema>;
 
 const log = createLogger("release");
-const cursorFile: string = core.getInput("cursorFile", { required: true });
 
 const envs = z
   .object({
@@ -34,15 +40,12 @@ const envs = z
   })
   .parse(process.env);
 
+const cursorFilePath = path.resolve(envs.GITHUB_WORKSPACE, cursorFile);
+
 export const octokit = getOctokit(envs.GITHUB_TOKEN);
 
-const branchRefs = {
-  MAIN_BRANCH: "main",
-  RELEASE_NOTE_BRANCH: "release-notes/main",
-};
-
 (async () => {
-  const rawConfig = await fs.readFile(path.resolve(envs.GITHUB_WORKSPACE, cursorFile), "utf8");
+  const rawConfig = await fs.readFile(cursorFilePath, "utf8");
   const config = configSchema.parse(JSON.parse(rawConfig));
 
   const { changelogs, updatedConfig } = await getChangelogs(octokit, config);
@@ -51,7 +54,7 @@ const branchRefs = {
     await octokit.rest.git
       .deleteRef({
         owner: organization,
-        repo: "releases",
+        repo: RELEASE_NOTE_REPO,
         ref: `heads/${branchRefs.RELEASE_NOTE_BRANCH}`,
       })
       .catch(() => {});
@@ -90,7 +93,7 @@ ${changelog.diff ?? ""}`,
 
   const defaultBranch = await octokit.rest.git.getRef({
     owner: organization,
-    repo: "releases",
+    repo: RELEASE_NOTE_REPO,
     ref: `heads/${branchRefs.MAIN_BRANCH}`,
   });
 
@@ -98,7 +101,7 @@ ${changelog.diff ?? ""}`,
   await octokit.rest.git
     .createRef({
       owner: organization,
-      repo: "releases",
+      repo: RELEASE_NOTE_REPO,
       ref: `refs/heads/${branchRefs.RELEASE_NOTE_BRANCH}`,
       sha: defaultBranch.data.object.sha,
     })
@@ -106,7 +109,8 @@ ${changelog.diff ?? ""}`,
 
   const baseParam = {
     owner: organization,
-    repo: "releases",
+    branch: branchRefs.RELEASE_NOTE_BRANCH,
+    repo: RELEASE_NOTE_REPO,
     committer: {
       name: "skedibot",
       email: "git@skedify.co",
@@ -120,8 +124,7 @@ ${changelog.diff ?? ""}`,
   // Save the raw aggregated changeset file
   await createOrUpdateFile({
     ...baseParam,
-    branch: branchRefs.RELEASE_NOTE_BRANCH,
-    path: `changelogs/${dateString}.md`,
+    path: `${BASE_PATH}/changelogs/${dateString}.md`,
     message: `${dateString} version`,
     content: Buffer.from(changelogContent).toString("base64"),
   });
@@ -129,8 +132,7 @@ ${changelog.diff ?? ""}`,
   // Save the new cursor
   await createOrUpdateFile({
     ...baseParam,
-    branch: branchRefs.RELEASE_NOTE_BRANCH,
-    path: "changelog-cursor.json",
+    path: cursorFile,
     message: `Update cursor to ${dateString}`,
     content: Buffer.from(`${JSON.stringify(updatedConfig, null, 2)}\n`).toString("base64"),
   });
@@ -139,8 +141,7 @@ ${changelog.diff ?? ""}`,
   for (const [language, changelog] of Object.entries(humanFriendlyReleaseNotes)) {
     await createOrUpdateFile({
       ...baseParam,
-      branch: branchRefs.RELEASE_NOTE_BRANCH,
-      path: `src/content/releases/${language}/${dateString}.md`,
+      path: `${BASE_PATH}/src/content/releases/${language}/${dateString}.md`,
       message: `${dateString} ${language} version`,
       content: Buffer.from(changelog).toString("base64"),
     });
@@ -149,7 +150,7 @@ ${changelog.diff ?? ""}`,
   await octokit.rest.pulls
     .create({
       owner: organization,
-      repo: "releases",
+      repo: RELEASE_NOTE_REPO,
       base: branchRefs.MAIN_BRANCH,
       head: branchRefs.RELEASE_NOTE_BRANCH,
       title: `Release ${dateString}`,

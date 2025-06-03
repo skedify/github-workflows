@@ -36,7 +36,7 @@ export async function createOrUpdateFile(
       owner: params.owner,
       repo: params.repo,
       ref: `heads/${params.branch}`,
-      path: `${params.path}`,
+      path: params.path,
     });
   } catch (error) {
     // @ts-ignore
