@@ -2,10 +2,18 @@ name: 'Aggregate Release Notes'
 description: ''
 
 inputs:
-  cursorFile: 
+  cursorFile:
     description: 'The cursor file.'
-    required: true
     default: changelog-cursor.json
+  releaseNoteRepo:
+    description: 'The release Notes Repo'
+    default: releases
+  basePath:
+    description: 'Base path of the releases project'
+    default: ""
+  mainBranch:
+    description: 'Main branch of the releases project'
+    default: "main"
 
 runs:
   using: 'node20'
