@@ -16,7 +16,7 @@ const branchRefs = {
   RELEASE_NOTE_BRANCH: "release-notes/main",
 } as const;
 const RELEASE_NOTE_REPO = core.getInput("releaseNoteRepo", { required: true });
-const BASE_PATH = core.getInput("basePath", { required: true });
+const BASE_PATH = core.getInput("basePath");
 const cursorFile = core.getInput("cursorFile", { required: true });
 
 const configSchema = z.record(
