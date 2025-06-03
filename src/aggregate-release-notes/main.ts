@@ -111,14 +111,6 @@ ${changelog.diff ?? ""}`,
     owner: organization,
     branch: branchRefs.RELEASE_NOTE_BRANCH,
     repo: RELEASE_NOTE_REPO,
-    committer: {
-      name: "skedibot",
-      email: "git@skedify.co",
-    },
-    author: {
-      name: "skedibot",
-      email: "git@skedify.co",
-    },
   } satisfies Partial<Parameters<typeof octokit.rest.repos.createOrUpdateFileContents>[0]>;
 
   // Save the raw aggregated changeset file
