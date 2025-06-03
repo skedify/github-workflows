@@ -1,8 +1,9 @@
 import { octokit } from "./main";
 
 async function createFile(
-  rawParams: Parameters<typeof octokit.rest.repos.createOrUpdateFileContents>[0]
+  rawParams: Parameters<typeof octokit.rest.repos.createOrUpdateFileContents>[0],
 ) {
+  // biome-ignore lint/style/noNonNullAssertion: <explanation>
   const params = rawParams!;
 
   return octokit.rest.repos.createOrUpdateFileContents(params);
@@ -10,8 +11,9 @@ async function createFile(
 
 async function updateFile(
   file: Awaited<ReturnType<typeof octokit.rest.repos.getContent>>,
-  rawParams: Parameters<typeof octokit.rest.repos.createOrUpdateFileContents>[0]
+  rawParams: Parameters<typeof octokit.rest.repos.createOrUpdateFileContents>[0],
 ) {
+  // biome-ignore lint/style/noNonNullAssertion: <explanation>
   const params = rawParams!;
 
   return octokit.rest.repos.createOrUpdateFileContents({
@@ -21,9 +23,13 @@ async function updateFile(
   });
 }
 
-export async function createOrUpdateFile(rawParams: Parameters<typeof octokit.rest.repos.createOrUpdateFileContents>[0]) {
+export async function createOrUpdateFile(
+  rawParams: Parameters<typeof octokit.rest.repos.createOrUpdateFileContents>[0],
+) {
+  // biome-ignore lint/style/noNonNullAssertion: <explanation>
   const params = rawParams!;
-  let file;
+  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+  let file: any;
 
   try {
     file = await octokit.rest.repos.getContent({

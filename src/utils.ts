@@ -1,4 +1,4 @@
-import { getOctokit } from "@actions/github";
+import type { getOctokit } from "@actions/github";
 
 type OctokitInstance = ReturnType<typeof getOctokit>;
 const owner = "skedify";
