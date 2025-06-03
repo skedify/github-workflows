@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import * as core from "@actions/core";
 import { getOctokit } from "@actions/github";
-import { type GenerativeModel, GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import z from "zod";
 
 import { createLogger } from "../utils";
@@ -69,19 +69,23 @@ ${changelog.diff ?? ""}`,
     )
     .join("\n\n");
 
-  const genAI = new GoogleGenerativeAI(envs.GEMINI_API_TOKEN);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const gemini = createGemini({ apiKey: envs.GEMINI_API_TOKEN });
 
   const englishReleaseNote = await gemini(
-    model,
     `Summarize the following individual release notes to a human-friendly, marketing oriented release note in Markdown format using the following sections: short intro, new features & enhancements and bug fixes.\n\n${changelogContent}`,
   );
+
+  const [dutchReleaseNote, frenchReleaseNote] = await Promise.all([
+    gemini(`Translate the following release note from English to Dutch:\n\n${englishReleaseNote}`),
+    gemini(`Translate the following release note from English to French:\n\n${englishReleaseNote}`),
+  ]);
+
   const dateString = new Date().toISOString().split("T")[0] ?? "";
 
   const humanFriendlyReleaseNotes = {
-    en: `${createMeta(`Release ${dateString}`, `${dateString}`, dateString, "")}\n\n${englishReleaseNote}`,
-    nl: `${createMeta(`Release ${dateString}`, `${dateString}`, dateString, "")}\n\n${await gemini(model, `Translate the release note from English to Dutch:\n\n${englishReleaseNote}`)}`,
-    fr: `${createMeta(`Release ${dateString}`, `${dateString}`, dateString, "")}\n\n${await gemini(model, `Translate the release note from English to French:\n\n${englishReleaseNote}`)}`,
+    en: `${createMeta(`Release ${dateString}`, dateString, dateString, "")}\n\n${englishReleaseNote}`,
+    nl: `${createMeta(`Release ${dateString}`, dateString, dateString, "")}\n\n${dutchReleaseNote}`,
+    fr: `${createMeta(`Release ${dateString}`, dateString, dateString, "")}\n\n${frenchReleaseNote}`,
   };
 
   const defaultBranch = await octokit.rest.git.getRef({
@@ -210,11 +214,13 @@ async function getChangelogs(octokit: ReturnType<typeof getOctokit>, config: Con
   return { changelogs, updatedConfig: config };
 }
 
-async function gemini(model: GenerativeModel, prompt: string): Promise<string> {
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
+function createGemini({ apiKey }: { apiKey: string }) {
+  const genAi = new GoogleGenAI({ apiKey });
 
-  return response.text();
+  return (prompt: string) =>
+    genAi.models
+      .generateContent({ model: "gemini-2.0-flash", contents: prompt })
+      .then((result) => result.text ?? "");
 }
 
 function createMeta(title: string, versionNumber: string, date: string, description: string) {
