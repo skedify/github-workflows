@@ -76,7 +76,7 @@ ${changelog.diff ?? ""}`,
   const gemini = createGemini({ apiKey: envs.GEMINI_API_TOKEN });
 
   const englishReleaseNote = await gemini(
-    `Summarize the following individual release notes to a human-friendly, marketing oriented release note in Markdown format using the following sections: short intro, new features & enhancements and bug fixes.\n\n${changelogContent}`,
+    `Summarize the following individual release notes into a human-friendly, marketing oriented, professional but easy to ready release note in Markdown format using the following sections:\n- a short intro, containing a concise summary of the major changes listed in the other sections. Don't use bullet points here and sound excited.\n- New features & enhancements\n- Bug fixes.\n\n${changelogContent}`,
   );
 
   const dateString = new Date().toISOString().split("T")[0] ?? "";
