@@ -12,11 +12,11 @@ import { createOrUpdateFile } from "./createOrUpdateFile";
 const organization = "skedify";
 const CHANGELOG_NAME = "CHANGELOG.md";
 const branchRefs = {
-  MAIN_BRANCH: core.getInput("mainBranch") || "main",
+  MAIN_BRANCH: core.getInput("mainBranch", { required: true }),
   RELEASE_NOTE_BRANCH: "release-notes/main",
 } as const;
-const RELEASE_NOTE_REPO = core.getInput("releaseNoteRepo") || "releases";
-const BASE_PATH = core.getInput("basePath") || ".";
+const RELEASE_NOTE_REPO = core.getInput("releaseNoteRepo", { required: true });
+const BASE_PATH = core.getInput("basePath", { required: true });
 const cursorFile = core.getInput("cursorFile", { required: true });
 
 const configSchema = z.record(
@@ -124,7 +124,7 @@ ${changelog.diff ?? ""}`,
   // Save the raw aggregated changeset file
   await createOrUpdateFile({
     ...baseParam,
-    path: `${BASE_PATH}/changelogs/${dateString}.md`,
+    path: `${BASE_PATH}changelogs/${dateString}.md`,
     message: `${dateString} version`,
     content: Buffer.from(changelogContent).toString("base64"),
   });
@@ -141,7 +141,7 @@ ${changelog.diff ?? ""}`,
   for (const [language, changelog] of Object.entries(humanFriendlyReleaseNotes)) {
     await createOrUpdateFile({
       ...baseParam,
-      path: `${BASE_PATH}/src/content/releases/${language}/${dateString}.md`,
+      path: `${BASE_PATH}src/content/releases/${language}/${dateString}.md`,
       message: `${dateString} ${language} version`,
       content: Buffer.from(changelog).toString("base64"),
     });
