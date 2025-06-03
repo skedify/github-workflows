@@ -78,17 +78,12 @@ ${changelog.diff ?? ""}`,
     `Summarize the following individual release notes to a human-friendly, marketing oriented release note in Markdown format using the following sections: short intro, new features & enhancements and bug fixes.\n\n${changelogContent}`,
   );
 
-  const [dutchReleaseNote, frenchReleaseNote] = await Promise.all([
-    gemini(`Translate the following release note from English to Dutch:\n\n${englishReleaseNote}`),
-    gemini(`Translate the following release note from English to French:\n\n${englishReleaseNote}`),
-  ]);
-
   const dateString = new Date().toISOString().split("T")[0] ?? "";
 
   const humanFriendlyReleaseNotes = {
     en: `${createMeta(`Release ${dateString}`, dateString, dateString, "")}\n\n${englishReleaseNote}`,
-    nl: `${createMeta(`Release ${dateString}`, dateString, dateString, "")}\n\n${dutchReleaseNote}`,
-    fr: `${createMeta(`Release ${dateString}`, dateString, dateString, "")}\n\n${frenchReleaseNote}`,
+    nl: `${createMeta(`Release ${dateString}`, dateString, dateString, "")}\n\n`,
+    fr: `${createMeta(`Release ${dateString}`, dateString, dateString, "")}\n\n`,
   };
 
   const defaultBranch = await octokit.rest.git.getRef({
