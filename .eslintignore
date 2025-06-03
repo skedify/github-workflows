@@ -1,7 +1,0 @@
-jest.config.js
-dist
-lib
-node_modules
-!.husky
-pnpm-lock.yaml
-pnpm-workspace.yaml

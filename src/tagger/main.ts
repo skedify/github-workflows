@@ -21,7 +21,7 @@ import { createLogger, createOctokitInstance, getPrefixedThrow } from "../utils"
   const [type, nameOrPrefix, releaseNameOrPkgName, releaseNameOrNothing] = currentBranch.split("/");
 
   const name = nameOrPrefix.startsWith("@")
-    ? nameOrPrefix + "/" + releaseNameOrPkgName
+    ? `${nameOrPrefix}/${releaseNameOrPkgName}`
     : nameOrPrefix;
   const releaseName = nameOrPrefix.startsWith("@") ? releaseNameOrNothing : releaseNameOrPkgName;
 
@@ -40,11 +40,25 @@ import { createLogger, createOctokitInstance, getPrefixedThrow } from "../utils"
   const log = createLogger(name);
 
   try {
-    const latestRcTag = await getLatestExistingTag({ name, releaseName, type: "rc" });
-    const latestHotfixTag = await getLatestExistingTag({ name, releaseName, type: "hotfix" });
+    const latestRcTag = await getLatestExistingTag({
+      name,
+      releaseName,
+      type: "rc",
+    });
+    const latestHotfixTag = await getLatestExistingTag({
+      name,
+      releaseName,
+      type: "hotfix",
+    });
 
     const latestTag = type === "hotfix" ? latestHotfixTag : latestRcTag;
-    const nextTag = determineNextTag({ type, latestTag, name, releaseName, log });
+    const nextTag = determineNextTag({
+      type,
+      latestTag,
+      name,
+      releaseName,
+      log,
+    });
 
     log(`Tagging with ${nextTag}`);
 
@@ -81,19 +95,18 @@ function determineNextTag({
     log(`not tagged yet, starting at ${type}.0`);
 
     return createTag({ name, releaseName, type, version: 0 });
-  } else {
-    const currentVersion = latestTag.split(`${type}.`).pop();
-
-    if (typeof currentVersion !== "string")
-      throw new Error(`Couldn't determine next ${type} version, aborting... config: ${latestTag}`);
-
-    const nextVersion = Number.parseInt(currentVersion) + 1;
-
-    if (Number.isNaN(nextVersion))
-      throw new Error(`Couldn't determine next ${type} version, aborting... config: ${latestTag}`);
-
-    return createTag({ name, releaseName, type, version: nextVersion });
   }
+  const currentVersion = latestTag.split(`${type}.`).pop();
+
+  if (typeof currentVersion !== "string")
+    throw new Error(`Couldn't determine next ${type} version, aborting... config: ${latestTag}`);
+
+  const nextVersion = Number.parseInt(currentVersion) + 1;
+
+  if (Number.isNaN(nextVersion))
+    throw new Error(`Couldn't determine next ${type} version, aborting... config: ${latestTag}`);
+
+  return createTag({ name, releaseName, type, version: nextVersion });
 }
 
 function createTag({

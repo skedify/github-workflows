@@ -50,14 +50,22 @@ const getOptionalInput = (name: string) => core.getInput(name) || undefined;
         const HAS_STABLE_RELEASE = await hasTag({ name, releaseName });
 
         if (IS_STABLE_RELEASE && HAS_STABLE_RELEASE)
-          throw new Error(`Trying to release stable when it already exists! Aborting...`);
+          throw new Error("Trying to release stable when it already exists! Aborting...");
 
-        const latestRcTag = await getLatestExistingTag({ name, releaseName, type: "rc" });
+        const latestRcTag = await getLatestExistingTag({
+          name,
+          releaseName,
+          type: "rc",
+        });
 
         if (IS_STABLE_RELEASE && latestRcTag.length === 0)
-          throw new Error(`Trying to release stable without an rc.0 version! Aborting...`);
+          throw new Error("Trying to release stable without an rc.0 version! Aborting...");
 
-        const latestHotfixTag = await getLatestExistingTag({ name, releaseName, type: "hotfix" });
+        const latestHotfixTag = await getLatestExistingTag({
+          name,
+          releaseName,
+          type: "hotfix",
+        });
 
         const SHOULD_USE_HOTFIX_TAG = IS_HOTFIX_BRANCH ? true : HAS_STABLE_RELEASE;
 
@@ -90,7 +98,7 @@ const getOptionalInput = (name: string) => core.getInput(name) || undefined;
   );
 
   const errorMessages = taskResults.reduce(
-    (text, res) => (res.status === "rejected" ? text + res.reason.message + "\n" : text),
+    (text, res) => (res.status === "rejected" ? `${text + res.reason.message}\n` : text),
     "",
   );
 
@@ -117,16 +125,15 @@ function determineNextTag({
     log(`not tagged yet, starting at ${type}.0`);
 
     return createTag({ name, releaseName, type, version: 0 });
-  } else {
-    const currentVersion = latestTag.split(`${type}.`).pop();
-
-    if (typeof currentVersion !== "string")
-      throw new Error(`Couldn't determine next ${type} version, aborting... config: ${latestTag}`);
-
-    const nextVersion = Number.parseInt(currentVersion) + 1;
-
-    return createTag({ name, releaseName, type, version: nextVersion });
   }
+  const currentVersion = latestTag.split(`${type}.`).pop();
+
+  if (typeof currentVersion !== "string")
+    throw new Error(`Couldn't determine next ${type} version, aborting... config: ${latestTag}`);
+
+  const nextVersion = Number.parseInt(currentVersion) + 1;
+
+  return createTag({ name, releaseName, type, version: nextVersion });
 }
 
 function createTag({

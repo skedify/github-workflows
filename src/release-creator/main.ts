@@ -77,7 +77,7 @@ const WORKFLOW_NAME = "release-branch-tagger.yml";
   );
 
   const errorMessages = taskResults.reduce(
-    (text, res) => (res.status === "rejected" ? text + res.reason.message + "\n" : text),
+    (text, res) => (res.status === "rejected" ? `${text + res.reason.message}\n` : text),
     "",
   );
 
