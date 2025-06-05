@@ -2,6 +2,8 @@ name: 'AI Translator'
 description: ''
 
 inputs:
+  repo:
+    description: 'Repo to translate'
   prBranch:
     description: 'PR branch of the to be translated project'
     default: "main"
