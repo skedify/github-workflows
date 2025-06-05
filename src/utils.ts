@@ -121,3 +121,295 @@ export function createLogger(prefix: string) {
     console.log(`${prefix}: ${message}`);
   };
 }
+
+type Octokit = ReturnType<typeof getOctokit>;
+type CreateTreeParams = NonNullable<
+  Parameters<ReturnType<typeof getOctokit>["rest"]["git"]["createTree"]>[0]
+>;
+
+export class OctokitApi {
+  #octokit: Octokit;
+  #repo: string;
+  #branch: string;
+  constructor(params: { octokit: Octokit; repo: string; branch: string }) {
+    this.#octokit = params.octokit;
+    this.#repo = params.repo;
+    this.#branch = params.branch;
+  }
+
+  async #fileExistsInRepo(path: string) {
+    try {
+      await this.#octokit.rest.repos.getContent({
+        method: "HEAD",
+        owner,
+        repo: this.#repo,
+        path,
+        ref: this.#branch,
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async #createCommit({
+    message,
+    tree,
+    baseTree,
+  }: {
+    message: string;
+    tree: { sha: string };
+    baseTree: string;
+  }) {
+    return (
+      await this.#octokit.rest.git.createCommit({
+        owner,
+        repo: this.#repo,
+        message,
+
+        tree: tree.sha,
+        parents: [baseTree],
+      })
+    ).data;
+  }
+
+  async #createTree({
+    tree,
+    base_tree,
+  }: {
+    base_tree: string;
+    tree: CreateTreeParams["tree"];
+  }) {
+    return (
+      await this.#octokit.rest.git.createTree({
+        owner,
+        repo: this.#repo,
+        tree,
+        base_tree,
+      })
+    ).data;
+  }
+
+  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+  async #createBlob(contents: any, type: string) {
+    if (type === "commit") {
+      return contents;
+    }
+
+    let content = contents;
+
+    if (!isBase64(content)) {
+      content = Buffer.from(contents).toString("base64");
+    }
+
+    const file = (
+      await this.#octokit.rest.git.createBlob({
+        owner,
+        repo: this.#repo,
+        content,
+        encoding: "base64",
+      })
+    ).data;
+    return file.sha;
+  }
+
+  async #loadRef(ref: string) {
+    try {
+      const x = await this.#octokit.rest.git.getRef({
+        owner,
+        repo: this.#repo,
+        ref: `heads/${ref}`,
+      });
+      return x.data.object.sha;
+    } catch (e) {
+      // console.log(e);
+    }
+  }
+
+  async multiFileUpload({
+    // branch,
+    changes,
+    batchSize = 1,
+  }: {
+    // branch: string;
+    changes: {
+      message: string;
+      ignoreDeletionFailures: boolean;
+      files?: {
+        [fileName: string]:
+          | {
+              contents: string | Buffer;
+              mode?: "100644" | "100755" | "040000" | "160000" | "120000";
+              type?: "blob" | "tree" | "commit";
+            }
+          | string;
+      };
+      filesToDelete?: string[];
+    }[];
+    batchSize?: number;
+  }) {
+    try {
+      if (!changes || !changes.length) {
+        throw new Error("No changes provided");
+      }
+
+      let baseTree = await this.#loadRef(this.#branch);
+
+      // Does the target branch already exist?
+      if (!baseTree)
+        throw new Error(`The branch '${this.#branch}' doesn't exist and createBranch is 'false'`);
+
+      // Create blobs
+      const commits = [];
+      for (const change of changes) {
+        const message = change.message;
+        if (!message) {
+          throw new Error("changes[].message is a required parameter");
+        }
+
+        const hasFiles = change.files && Object.keys(change.files).length > 0;
+        const hasFilesToDelete =
+          Array.isArray(change.filesToDelete) && change.filesToDelete.length > 0;
+
+        if (!hasFiles && !hasFilesToDelete) {
+          throw new Error("either changes[].files or changes[].filesToDelete are required");
+        }
+
+        const treeItems: CreateTreeParams["tree"] = [];
+        // Handle file deletions
+        if (Array.isArray(change.filesToDelete)) {
+          for (const batch of chunk(change.filesToDelete, batchSize)) {
+            await Promise.all(
+              batch.map(async (fileName) => {
+                const exists = await this.#fileExistsInRepo(fileName);
+
+                // If it doesn't exist, and we're not ignoring missing files
+                // reject the promise
+                if (!exists && !change.ignoreDeletionFailures) {
+                  throw new Error(`The file ${fileName} could not be found in the repo`);
+                }
+
+                // At this point it either exists, or we're ignoring failures
+                if (exists) {
+                  treeItems.push({
+                    path: fileName,
+                    sha: null, // sha as null implies that the file should be deleted
+                    mode: "100644",
+                    type: "commit",
+                  });
+                }
+              }),
+            );
+          }
+        }
+
+        if (change.files) {
+          for (const batch of chunk(Object.keys(change.files), batchSize)) {
+            await Promise.all(
+              batch.map(async (fileName) => {
+                const properties = change.files?.[fileName]; // || {};
+
+                const contents = typeof properties === "string" ? properties : properties?.contents;
+                const mode =
+                  typeof properties === "string" ? "100644" : properties?.mode || "100644";
+                const type = typeof properties === "string" ? "blob" : properties?.type || "blob";
+
+                if (!contents) {
+                  throw new Error(`No file contents provided for ${fileName}`);
+                }
+
+                const fileSha = await this.#createBlob(contents, type);
+
+                treeItems.push({
+                  path: fileName,
+                  sha: fileSha,
+                  mode: mode,
+                  type: type,
+                });
+              }),
+            );
+          }
+        }
+
+        // no need to issue further requests if there are no updates, creations and deletions
+        if (treeItems.length === 0) {
+          continue;
+        }
+
+        // Add those blobs to a tree
+        const tree = await this.#createTree({ tree: treeItems, base_tree: baseTree });
+
+        // Create a commit that points to that tree
+        const commit = await this.#createCommit({
+          message,
+          tree,
+          baseTree,
+        });
+
+        // Update the base tree if we have another commit to make
+        baseTree = commit.sha;
+        commits.push(commit);
+      }
+
+      await this.#octokit.rest.git.updateRef({
+        owner,
+        repo: this.#repo,
+        force: true,
+        ref: `heads/${this.#branch}`,
+        sha: baseTree,
+      });
+
+      // Return the new branch name so that we can use it later
+      // e.g. to create a pull request
+      return { commits };
+    } catch (e) {
+      console.error("Error in multiFileUpload:", e);
+      throw e;
+    }
+  }
+}
+
+function chunk<T>(input: T[], size: number) {
+  return input.reduce((arr, item, idx) => {
+    // biome-ignore lint/performance/noAccumulatingSpread: <explanation>
+    return idx % size === 0 ? [...arr, [item]] : [...arr.slice(0, -1), [...arr.slice(-1)[0], item]];
+  }, [] as T[][]);
+}
+
+function isBase64(strRaw: string | Buffer): boolean {
+  // Handle buffer inputs
+
+  const str = Buffer.isBuffer(strRaw) ? strRaw.toString("utf8") : strRaw;
+  const notBase64 = /[^A-Z0-9+\/=]/i;
+
+  const isString = typeof str === "string";
+
+  if (!isString) {
+    let invalidType: string;
+    if (str === null) {
+      invalidType = "null";
+    } else {
+      invalidType = typeof str;
+      // @ts-expect-error
+      // biome-ignore lint/suspicious/noPrototypeBuiltins: <explanation>
+      if (invalidType === "object" && str.constructor && str.constructor.hasOwnProperty("name")) {
+        // @ts-expect-error
+        invalidType = str.constructor.name;
+      } else {
+        invalidType = `a ${invalidType}`;
+      }
+    }
+    throw new TypeError(`Expected string but received ${invalidType}.`);
+  }
+
+  const len = str.length;
+  if (!len || len % 4 !== 0 || notBase64.test(str)) {
+    return false;
+  }
+  const firstPaddingChar = str.indexOf("=");
+  return (
+    firstPaddingChar === -1 ||
+    firstPaddingChar === len - 1 ||
+    (firstPaddingChar === len - 2 && str[len - 1] === "=")
+  );
+}

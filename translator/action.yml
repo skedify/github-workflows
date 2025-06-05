@@ -1,0 +1,14 @@
+name: 'AI Translator'
+description: ''
+
+inputs:
+  prBranch:
+    description: 'PR branch of the to be translated project'
+    default: "main"
+  mainBranch:
+    description: 'Main branch of the repo'
+    default: "develop"
+
+runs:
+  using: 'node20'
+  main: './dist/index.js'

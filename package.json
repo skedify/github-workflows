@@ -2,6 +2,7 @@
   "name": "skedify-workflow-mono",
   "version": "0.0.0",
   "private": true,
+  "type": "commonjs",
   "description": "Repository that contains reusable workflows for Skedify",
   "scripts": {
     "lint": "biome check ./src",
@@ -12,6 +13,8 @@
     "package:release-creator": "ncc build -s -m -d --license licenses.txt src/release-creator/main.ts -o release-creator/dist",
     "package:get-app-token": "ncc build -s -m -d --license licenses.txt src/get-app-token/main.ts -o get-app-token/dist",
     "package:tagger": "ncc build -s -m -d --license licenses.txt src/tagger/main.ts -o tagger/dist",
+    "package:translator": "ncc build -s -m -d --license licenses.txt src/translator/main.ts -o translator/dist",
+    "package:translator-lib": "ncc build -s -m -d --license licenses.txt src/translator/translator.ts -o translator-lib/dist",
     "prepare": "husky"
   },
   "repository": {
