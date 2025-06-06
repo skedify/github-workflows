@@ -2,7 +2,6 @@ import { getOctokit } from "@actions/github";
 import { GoogleGenAI, Type } from "@google/genai";
 import { OctokitApi, createLogger } from "../utils";
 
-const organization = "skedify";
 const log = createLogger("translator");
 export async function translator({
   mainBranch,
@@ -17,24 +16,16 @@ export async function translator({
   GITHUB_TOKEN: string;
   GEMINI_API_TOKEN: string;
 }) {
-  const octokit = getOctokit(GITHUB_TOKEN);
-  const gemini = createGemini({ apiKey: GEMINI_API_TOKEN });
-  const api = new OctokitApi({ octokit, repo, branch: prBranch });
+  const translate = createGemini({ apiKey: GEMINI_API_TOKEN });
+  const api = new OctokitApi({ octokit: getOctokit(GITHUB_TOKEN), repo, branch: prBranch });
 
-  const prBranchRef = await octokit.rest.git.getRef({
-    owner: organization,
-    repo: repo,
-    ref: `heads/${prBranch}`,
-  });
+  const prSha = await api.loadRef(prBranch);
+  if (!prSha) {
+    log(`Branch ${prBranch} not found in repository ${repo}.`);
+    return;
+  }
 
-  const fileGroups = await getI18nFiles({
-    repo: repo,
-    mainBranch: mainBranch,
-    octokit,
-    prSha: prBranchRef.data.object.sha,
-    prBranch: prBranch,
-  });
-
+  const fileGroups = await getI18nFiles({ mainBranch, api, prSha, prBranch });
   if (!fileGroups || fileGroups.length === 0) {
     log("No i18n files found or no changes detected.");
     return;
@@ -45,7 +36,7 @@ export async function translator({
       const source = files.find((f) => f.lng === "en");
       const otherFiles = files.filter((f) => f.lng !== "en");
 
-      if (!source) {
+      if (!source || source.json === null) {
         log("No English file found in the group, skipping...");
         throw new Error(
           `No English file found in the group for repo ${repo} on branch ${prBranch}.`,
@@ -53,24 +44,13 @@ export async function translator({
       }
 
       return otherFiles.map(async (target) => {
-        const output = await gemini({ source, target });
-
-        const original = target.content
-          ? Object.fromEntries(target.content.map(({ k, v }) => [k, v]))
-          : {};
-
-        const merged =
-          output?.reduce((acc, { k, v }) => {
-            acc[k] = v;
-            return acc;
-          }, original) ?? original;
-
-        const sorted = Object.fromEntries(Object.entries(merged).sort());
+        const output = await translate({ source, target });
+        const sorted = Object.fromEntries(Object.entries({ ...target.json, ...output }).sort());
 
         return {
           lng: target.lng,
           path: target.path,
-          result: sorted,
+          result: `${JSON.stringify(sorted, null, 2)}\n`,
         };
       });
     }),
@@ -79,11 +59,9 @@ export async function translator({
   await api.multiFileUpload({
     changes: [
       {
-        message: `[Update i18n files] - ${repo} - ${prBranch}`,
+        message: "[i18n AI Translations]",
         ignoreDeletionFailures: true,
-        files: Object.fromEntries(
-          result.map((file) => [file.path, `${JSON.stringify(file.result, null, 2)}\n`]),
-        ),
+        files: Object.fromEntries(result.map((file) => [file.path, file.result])),
       },
     ],
   });
@@ -96,106 +74,52 @@ type FileResults = {
   lng: (typeof supportedLngs)[number];
   /** content can be null if the file doesn't exist */
   content: { k: string; v: string }[] | null;
+  json: Record<string, string> | null;
   path: string;
 };
 
 async function getI18nFiles({
-  octokit,
+  api,
   mainBranch,
   prBranch,
   prSha,
-  repo,
 }: {
-  octokit: ReturnType<typeof getOctokit>;
+  api: OctokitApi;
   mainBranch: string;
-  repo: string;
   prSha: string;
   prBranch: string;
 }) {
-  console.log(`[compareCommitsWithBasehead]: [${repo}] - Comparing ${mainBranch}...${prBranch}`);
-
-  const {
-    data: { files },
-  } = await octokit.rest.repos.compareCommitsWithBasehead({
-    owner: organization,
-    repo: repo,
-    basehead: `${mainBranch}...${prBranch}`,
-  });
+  const files = await api.compareCommits({ base: mainBranch, head: prBranch });
 
   // all changed i18n en files
   const i18nEnFiles = files
     ?.filter(
-      (f) =>
-        f.filename.includes("/i18n/en/") && f.filename.endsWith(".json") && f.status !== "removed",
+      (f) => f.filename.includes("/en/") && f.filename.endsWith(".json") && f.status !== "removed",
     )
     .map((f) => f.filename);
 
   if (i18nEnFiles == null || i18nEnFiles.length === 0) return null;
 
-  console.log("i18nEnFiles", i18nEnFiles);
+  log("i18nEnFiles", i18nEnFiles);
 
   // returns a [][] of results, where each inner array corresponds to a single i18n file
   // and contains the content for each supported language.
   // If a language is not available, the content will be null.
-
   const allI18nFiles = await Promise.all(
-    i18nEnFiles.map(
-      (enFile) =>
-        new Promise<FileResults[]>((resolve, reject) => {
-          Promise.all(
-            supportedLngs.map(async (lng) => {
-              const path = enFile.replace("/en/", `/${lng}/`);
+    i18nEnFiles.map((enFile) =>
+      Promise.all(
+        supportedLngs.map(async (lng) => {
+          const path = enFile.replace("/en/", `/${lng}/`);
+          const json = await api.getJsonFileContent<Record<string, string>>({
+            ref: prSha,
+            path,
+          });
 
-              return {
-                path,
-                file: await octokit.rest.repos
-                  .getContent({
-                    owner: organization,
-                    repo: repo,
-                    ref: prSha,
-                    path,
-                    mediaType: { format: "raw" },
-                  })
-                  .catch((error) => {
-                    if (error.status === 404) {
-                      // If the file doesn't exist, return null
-                      return null;
-                    }
-
-                    throw error;
-                  }),
-              };
-            }),
-          )
-            .then((files) => {
-              const result = supportedLngs.map((lng, idx) => {
-                const { file, path } = files[idx];
-
-                if (file == null) {
-                  return {
-                    lng,
-                    path,
-                    content: null,
-                  };
-                }
-
-                if (typeof file.data === "string") {
-                  const content = JSON.parse(file.data) as Record<string, string>;
-
-                  return {
-                    lng,
-                    path,
-                    content: Object.entries(content).map(([k, v]) => ({ k, v })),
-                  };
-                }
-
-                throw new Error("Invalid file data type");
-              });
-
-              resolve(result);
-            })
-            .catch(reject);
+          return json
+            ? { lng, path, json, content: Object.entries(json).map(([k, v]) => ({ k, v })) }
+            : { lng, path, json, content: null };
         }),
+      ),
     ),
   );
 
@@ -215,7 +139,10 @@ const lngMap: Record<FileResults["lng"], string> = {
 function createGemini({ apiKey }: { apiKey: string }) {
   const genAi = new GoogleGenAI({ apiKey });
 
-  return async ({ source, target }: { source: FileResults; target: FileResults }) => {
+  return async function translate({
+    source,
+    target,
+  }: { source: FileResults; target: FileResults }) {
     const sourceLng = lngMap[source.lng];
     const targetLng = lngMap[target.lng];
 
@@ -233,98 +160,43 @@ If a key exists in the ${sourceLng} version, but not in the ${targetLng} version
 Only return newly added translations, do not return the entire file.
         `;
 
-    return genAi.models
-      .generateContent({
-        model: "gemini-2.0-flash",
-        contents,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                k: { type: Type.STRING },
-                v: { type: Type.STRING },
-              },
-              propertyOrdering: ["k", "v"],
+    const result = await genAi.models.generateContent({
+      model: "gemini-2.0-flash",
+      contents,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              k: { type: Type.STRING },
+              v: { type: Type.STRING },
             },
+            propertyOrdering: ["k", "v"],
           },
         },
-      })
-      .then((result) => {
-        if (result.text) {
-          try {
-            return JSON.parse(result.text) as { k: string; v: string }[];
-          } catch (error) {
-            console.error("Failed to parse Gemini response:", error);
-            console.error("Response text:", result.text);
-
-            return null;
-            // throw new Error("Invalid response from Gemini API");
-          }
-        }
-        return null;
-      });
-  };
-}
-
-function createGhApi(octokit: ReturnType<typeof getOctokit>) {
-  async function createFile(
-    rawParams: Parameters<typeof octokit.rest.repos.createOrUpdateFileContents>[0],
-  ) {
-    // biome-ignore lint/style/noNonNullAssertion: <explanation>
-    const params = rawParams!;
-
-    return octokit.rest.repos.createOrUpdateFileContents(params);
-  }
-
-  async function updateFile(
-    file: Awaited<ReturnType<typeof octokit.rest.repos.getContent>>,
-    rawParams: Parameters<typeof octokit.rest.repos.createOrUpdateFileContents>[0],
-  ) {
-    // biome-ignore lint/style/noNonNullAssertion: <explanation>
-    const params = rawParams!;
-
-    return octokit.rest.repos.createOrUpdateFileContents({
-      ...params,
-      // @ts-expect-error Octokit saus
-      sha: file.data.sha,
+      },
     });
-  }
 
-  async function createOrUpdateFile(
-    rawParams: Parameters<typeof octokit.rest.repos.createOrUpdateFileContents>[0],
-  ) {
-    // biome-ignore lint/style/noNonNullAssertion: <explanation>
-    const params = rawParams!;
-    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-    let file: any;
+    if (!result.text) return null;
 
     try {
-      file = await octokit.rest.repos.getContent({
-        owner: params.owner,
-        repo: params.repo,
-        ref: `heads/${params.branch}`,
-        path: params.path,
-      });
+      const parsed = JSON.parse(result.text) as { k: string; v: string }[];
+      log(`[${target.path}] Successfully translated file`);
+
+      return Object.fromEntries(
+        parsed
+          // remove hallucinations
+          // biome-ignore lint/style/noNonNullAssertion: <explanation>
+          .filter(({ k }) => k in source.json!)
+          .map(({ k, v }) => [k, v]),
+      );
     } catch (error) {
-      // @ts-ignore
-      if (error.status === 404) {
-        // Do nothing, create the file below
-      } else {
-        throw error;
-      }
+      console.error(`[${target.path}] Failed to parse Gemini response: `, error);
+      console.error(`[${target.path}] Response text:`, result.text);
+
+      return null;
     }
-
-    if (file == null) {
-      return createFile(params);
-    }
-
-    return updateFile(file, params);
-  }
-
-  return {
-    createOrUpdateFile,
   };
 }

@@ -117,8 +117,8 @@ export function getPrefixedThrow(prefix: string) {
 }
 
 export function createLogger(prefix: string) {
-  return function log(message: string): void {
-    console.log(`${prefix}: ${message}`);
+  return function log(message: string, ...optionalParams: unknown[]): void {
+    console.log(`${prefix}: ${message}`, ...optionalParams);
   };
 }
 
@@ -127,6 +127,9 @@ type CreateTreeParams = NonNullable<
   Parameters<ReturnType<typeof getOctokit>["rest"]["git"]["createTree"]>[0]
 >;
 
+function log({ func, message }: { func: string; message: string }) {
+  console.log(`[${func}]: ${message}`);
+}
 export class OctokitApi {
   #octokit: Octokit;
   #repo: string;
@@ -138,6 +141,8 @@ export class OctokitApi {
   }
 
   async #fileExistsInRepo(path: string) {
+    log({ func: "fileExistsInRepo", message: path });
+
     try {
       await this.#octokit.rest.repos.getContent({
         method: "HEAD",
@@ -161,16 +166,17 @@ export class OctokitApi {
     tree: { sha: string };
     baseTree: string;
   }) {
-    return (
-      await this.#octokit.rest.git.createCommit({
-        owner,
-        repo: this.#repo,
-        message,
+    log({ func: "createCommit", message: `base_tree - ${baseTree} | tree - ${tree.sha}` });
 
-        tree: tree.sha,
-        parents: [baseTree],
-      })
-    ).data;
+    const { data } = await this.#octokit.rest.git.createCommit({
+      owner,
+      repo: this.#repo,
+      message,
+      tree: tree.sha,
+      parents: [baseTree],
+    });
+
+    return data;
   }
 
   async #createTree({
@@ -180,14 +186,16 @@ export class OctokitApi {
     base_tree: string;
     tree: CreateTreeParams["tree"];
   }) {
-    return (
-      await this.#octokit.rest.git.createTree({
-        owner,
-        repo: this.#repo,
-        tree,
-        base_tree,
-      })
-    ).data;
+    log({ func: "createTree", message: `base_tree - ${base_tree}` });
+
+    const { data } = await this.#octokit.rest.git.createTree({
+      owner,
+      repo: this.#repo,
+      tree,
+      base_tree,
+    });
+
+    return data;
   }
 
   // biome-ignore lint/suspicious/noExplicitAny: <explanation>
@@ -202,6 +210,8 @@ export class OctokitApi {
       content = Buffer.from(contents).toString("base64");
     }
 
+    log({ func: "createBlob", message: "" });
+
     const file = (
       await this.#octokit.rest.git.createBlob({
         owner,
@@ -213,7 +223,9 @@ export class OctokitApi {
     return file.sha;
   }
 
-  async #loadRef(ref: string) {
+  async loadRef(ref: string) {
+    log({ func: "loadRef", message: ref });
+
     try {
       const x = await this.#octokit.rest.git.getRef({
         owner,
@@ -226,12 +238,50 @@ export class OctokitApi {
     }
   }
 
+  async getJsonFileContent<T>({ ref, path }: { ref: string; path: string }) {
+    log({ func: "getJsonFileContent", message: `Loading file ${path} at ref ${ref}` });
+    const file = await this.#octokit.rest.repos
+      .getContent({
+        owner,
+        repo: this.#repo,
+        ref,
+        path,
+        mediaType: { format: "raw" },
+      })
+      .catch((error) => {
+        if (error.status === 404) {
+          // If the file doesn't exist, return null
+          return null;
+        }
+
+        throw error;
+      });
+
+    if (!file || typeof file.data !== "string") return null;
+
+    const content = JSON.parse(file.data) as T;
+
+    return content;
+  }
+
+  async compareCommits({ base, head }: { base: string; head: string }) {
+    log({ func: "compareCommitsWithBasehead", message: `Comparing ${base}...${head}` });
+
+    const {
+      data: { files },
+    } = await this.#octokit.rest.repos.compareCommitsWithBasehead({
+      owner,
+      repo: this.#repo,
+      basehead: `${base}...${head}`,
+    });
+
+    return files;
+  }
+
   async multiFileUpload({
-    // branch,
     changes,
     batchSize = 1,
   }: {
-    // branch: string;
     changes: {
       message: string;
       ignoreDeletionFailures: boolean;
@@ -253,7 +303,7 @@ export class OctokitApi {
         throw new Error("No changes provided");
       }
 
-      let baseTree = await this.#loadRef(this.#branch);
+      let baseTree = await this.loadRef(this.#branch);
 
       // Does the target branch already exist?
       if (!baseTree)
@@ -351,10 +401,10 @@ export class OctokitApi {
         commits.push(commit);
       }
 
+      log({ func: "updateRef", message: "Updating upstream branch" });
       await this.#octokit.rest.git.updateRef({
         owner,
         repo: this.#repo,
-        force: true,
         ref: `heads/${this.#branch}`,
         sha: baseTree,
       });
