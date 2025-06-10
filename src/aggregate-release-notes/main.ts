@@ -3,6 +3,7 @@ import path from "node:path";
 import * as core from "@actions/core";
 import { getOctokit } from "@actions/github";
 import { GoogleGenAI } from "@google/genai";
+import parseGitDiff from 'parse-git-diff';
 import z from "zod";
 
 import { createLogger } from "../utils";
@@ -75,7 +76,7 @@ ${changelog.diff ?? ""}`,
   const gemini = createGemini({ apiKey: envs.GEMINI_API_TOKEN });
 
   const englishReleaseNote = await gemini(
-    `Summarize the following individual release notes to a human-friendly, marketing oriented release note in Markdown format using the following sections: short intro, new features & enhancements and bug fixes.\n\n${changelogContent}`,
+    `Summarize the following individual release notes into a human-friendly, marketing oriented, professional but easy to ready release note in Markdown format using the following sections:\n- a short intro, containing a concise summary of the major changes listed in the other sections. Don't use bullet points here and sound excited.\n- New features & enhancements\n- Bug fixes.\n\n${changelogContent}`,
   );
 
   const dateString = new Date().toISOString().split("T")[0] ?? "";
@@ -169,31 +170,44 @@ async function getChangelogs(octokit: ReturnType<typeof getOctokit>, config: Con
       config[repositoryName].cursor = baseSha;
 
       const {
-        data: { files },
+        data,
       } = await octokit.rest.repos.compareCommitsWithBasehead({
         owner: organization,
         repo: repositoryName,
         basehead: `${cursor}...${baseSha}`,
+        mediaType: {
+          // The "diff" format returns all changed files, as opposed to the "json" format
+          format: 'diff',
+        },
       });
 
-      const changedFiles = files ?? [];
+      const parsedData = parseGitDiff(data as unknown as string, {});
+      const filteredData = parsedData.files.filter((file) => 'path' in file && file.path != null && file.path.toLowerCase().includes('changelog.md'));
 
-      changedFiles
-        .filter((f) => f.filename.endsWith(CHANGELOG_NAME))
-        .forEach((f) => {
-          if (f.patch == null) {
-            return;
+      filteredData.forEach((fileChange) => {
+        let projectString = '';
+        let fileChangeString = '';
+
+        fileChange.chunks.forEach((chunk) => {
+          if (('changes' in chunk) && chunk.changes != null) {
+            chunk.changes.forEach((change) => {
+              if (change.type === 'UnchangedLine') {
+                projectString = projectString.concat(`${change.content}\n`)
+              }
+
+              if (change.type === 'AddedLine') {
+                fileChangeString = fileChangeString.concat(`${change.content}\n`);
           }
+            })
+          }
+        });
+
+        const regex = /# ([^\n]+)/
+        const matches = regex.exec(projectString) || [];
 
           changelogs.push({
-            projectName: f.filename
-              .replace(new RegExp(`/^(${path}\/)/`), "")
-              .replace("/CHANGELOG.md", ""),
-            diff: f.patch
-              .split("\n")
-              .filter((x) => x.startsWith("+"))
-              .map((x) => x.substr(1).trim())
-              .join("\n"),
+          projectName: matches[1],
+          diff: fileChangeString,
           });
         });
     }),
