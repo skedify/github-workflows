@@ -210,8 +210,6 @@ export class OctokitApi {
       content = Buffer.from(contents).toString("base64");
     }
 
-    log({ func: "createBlob", message: "" });
-
     const file = (
       await this.#octokit.rest.git.createBlob({
         owner,
@@ -369,6 +367,7 @@ export class OctokitApi {
                 }
 
                 const fileSha = await this.#createBlob(contents, type);
+                log({ func: "createBlob", message: `Successfully Uploaded ${fileName}` });
 
                 treeItems.push({
                   path: fileName,
