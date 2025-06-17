@@ -201,7 +201,7 @@ ${JSON.stringify(target.content)}
 
 The first file be a JSON object with which you should use as context for the translation. Try to use the context to improve the translation quality.
 The second file will be a JSON file in ${sourceLng}, and the third will be in ${targetLng}.
-I want you to translate it into ${targetLng}, however you should not override existing values, only translate missing values.
+I want you to translate it into ${targetLng}, however you should not override existing values, only translate missing values. Do NOT touch any existing keys in the ${targetLng} file that have a value already.
 The structure of a translation object is as follows: "k" stands for the key, and "v" stands for the value.
 If a key exists in the ${sourceLng} version, but not in the ${targetLng} version, you should add it to your output.
 Only return newly added translations, do not return the entire file.
