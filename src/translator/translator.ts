@@ -3,8 +3,17 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { OctokitApi, createLogger } from "../utils";
 
 const log = createLogger("translator");
+type ToTranslate = {
+  targetLanguage: Language;
+  keysToTranslate: string[];
+  file: string;
+  enKeyValues: Record<string, string>;
+  context: { path: string; content: Record<string, string> }[];
+};
+
 const defaultLngs = ["da", "de", "en", "el", "es", "fr", "nl", "no"] as const;
 type Language = (typeof defaultLngs)[number];
+
 export async function translator({
   mainBranch,
   prBranch,
@@ -20,7 +29,6 @@ export async function translator({
   GEMINI_API_TOKEN: string;
   languages?: Language[];
 }) {
-  const translate = createGemini({ apiKey: GEMINI_API_TOKEN });
   const api = new OctokitApi({ octokit: getOctokit(GITHUB_TOKEN), repo, branch: prBranch });
 
   const prSha = await api.loadRef(prBranch);
@@ -29,52 +37,28 @@ export async function translator({
     return;
   }
 
-  const { allI18nFiles: fileGroups, contextFiles } = await getI18nFiles({
+  const { translations } = await translateI18nFiles({
     mainBranch,
     api,
     prSha,
     prBranch,
     languages,
+    GEMINI_API_TOKEN,
   });
 
-  if (!fileGroups || fileGroups.length === 0) {
+  if (!translations || translations.length === 0) {
     log("No i18n files found or no changes detected.");
     return;
   }
-
-  const result = await Promise.all(
-    fileGroups.flatMap((files) => {
-      const source = files.find((f) => f.lng === "en");
-      const otherFiles = files.filter((f) => f.lng !== "en");
-
-      if (!source || source.json === null) {
-        log("No English file found in the group, skipping...");
-        throw new Error(
-          `No English file found in the group for repo ${repo} on branch ${prBranch}.`,
-        );
-      }
-
-      return otherFiles.map(async (target) => {
-        const contextJson = contextFiles.get(target.ctxFilePath) ?? null;
-
-        const output = await translate({ source, target, contextJson });
-        const sorted = Object.fromEntries(Object.entries({ ...target.json, ...output }).sort());
-
-        return {
-          lng: target.lng,
-          path: target.path,
-          result: `${JSON.stringify(sorted, null, 2)}\n`,
-        };
-      });
-    }),
-  );
 
   await api.multiFileUpload({
     changes: [
       {
         message: "[i18n AI Translations]",
         ignoreDeletionFailures: true,
-        files: Object.fromEntries(result.map((file) => [file.path, file.result])),
+        files: Object.fromEntries(
+          translations.map((file) => [file.path, `${JSON.stringify(file.content, null, 2)}\n`]),
+        ),
       },
     ],
   });
@@ -82,26 +66,20 @@ export async function translator({
   log("Done! ✅ :shipitparrot:");
 }
 
-type FileResults = {
-  lng: Language;
-  /** content can be null if the file doesn't exist */
-  content: { k: string; v: string }[] | null;
-  json: Record<string, string> | null;
-  path: string;
-};
-
-async function getI18nFiles({
+async function translateI18nFiles({
   api,
   mainBranch,
   prBranch,
   prSha,
   languages,
+  GEMINI_API_TOKEN,
 }: {
   api: OctokitApi;
   mainBranch: string;
   prSha: string;
   prBranch: string;
   languages: Language[];
+  GEMINI_API_TOKEN: string;
 }) {
   const files = await api.compareCommits({ base: mainBranch, head: prBranch });
 
@@ -110,14 +88,15 @@ async function getI18nFiles({
     ?.filter(
       (f) => f.filename.includes("/en/") && f.filename.endsWith(".json") && f.status !== "removed",
     )
-    .map((f) => f.filename);
+    .map((f) => f);
 
   if (i18nEnFiles == null || i18nEnFiles.length === 0)
     return { allI18nFiles: null, contextFiles: new Map() };
 
   log("i18nEnFiles", i18nEnFiles);
 
-  const additionalLanguageContextFiles = new Set<string>();
+  const additionalLanguageContextFiles = new Map<string, Language>();
+
   // returns a [][] of results, where each inner array corresponds to a single i18n file
   // and contains the content for each supported language.
   // If a language is not available, the content will be null.
@@ -125,7 +104,7 @@ async function getI18nFiles({
     i18nEnFiles.map((enFile) =>
       Promise.all(
         languages.map(async (lng) => {
-          const path = enFile.replace("/en/", `/${lng}/`);
+          const path = enFile.filename.replace("/en/", `/${lng}/`);
           const json = await api.getJsonFileContent<Record<string, string>>({
             ref: prSha,
             path,
@@ -134,7 +113,7 @@ async function getI18nFiles({
           const ctxFilePathParts = path.split("/");
           ctxFilePathParts[ctxFilePathParts.length - 1] = "common.json";
           const ctxFilePath = ctxFilePathParts.join("/");
-          additionalLanguageContextFiles.add(ctxFilePath);
+          additionalLanguageContextFiles.set(ctxFilePath, lng);
 
           return json
             ? {
@@ -152,23 +131,81 @@ async function getI18nFiles({
 
   log("additionalLanguageContextFiles", additionalLanguageContextFiles);
 
-  const contextFiles = new Map(
-    await Promise.all(
-      Array.from(additionalLanguageContextFiles).map(async (ctxFile) => {
-        const json = await api.getJsonFileContent<Record<string, string>>({
+  const contextFiles = new Map<Language, { path: string; content: Record<string, string> }[]>();
+
+  await Promise.all(
+    Array.from(additionalLanguageContextFiles).map(async ([ctxFile, lng]) => {
+      const json =
+        (await api.getJsonFileContent<Record<string, string>>({
           ref: prSha,
           path: ctxFile,
-        });
+        })) ?? {};
 
-        return [ctxFile, json] as const;
-      }),
-    ),
+      if (!contextFiles.has(lng)) {
+        contextFiles.set(lng, []);
+      }
+
+      contextFiles.get(lng)?.push({ path: ctxFile, content: json });
+    }),
   );
 
-  return { allI18nFiles, contextFiles };
+  const translationMap: ToTranslate[] = [];
+
+  await Promise.all(
+    allI18nFiles.map(async (translationFiles) => {
+      if (translationFiles.length > 0) {
+        const enFile = translationFiles[0].path.replace(`/${translationFiles[0].lng}/`, "/en/");
+
+        const json =
+          (await api.getJsonFileContent<Record<string, string>>({
+            ref: prSha,
+            path: enFile,
+          })) ?? {};
+
+        const enKeys = Object.keys(json);
+        translationFiles.forEach((target) => {
+          const keysToTranslate = enKeys.filter((k) => !Object.keys(target.json ?? {}).includes(k));
+
+          if (keysToTranslate.length > 0) {
+            translationMap.push({
+              targetLanguage: target.lng,
+              keysToTranslate,
+              file: target.path,
+              enKeyValues: Object.fromEntries(keysToTranslate.map((key) => [key, json[key]])),
+              context: [
+                ...(contextFiles.get(target.lng) ?? []),
+                { path: target.path, content: target.json ?? {} },
+              ],
+            });
+          }
+        });
+      }
+    }),
+  );
+
+  const translate = createGemini({ apiKey: GEMINI_API_TOKEN });
+
+  const translations: { path: string; content: Record<string, string> }[] = [];
+
+  await Promise.all(
+    translationMap.map(async (t) => {
+      const result = await translate(t);
+
+      const fullFile = t.context.find((f) => f.path === t.file) ?? { path: t.file, content: {} };
+
+      translations.push({
+        path: t.file,
+        content: Object.fromEntries(
+          Object.entries({ ...fullFile.content, ...result }).sort(([a], [b]) => a.localeCompare(b)),
+        ) as Record<string, string>,
+      });
+    }),
+  );
+
+  return { allI18nFiles, contextFiles, translationMap, translations };
 }
 
-const lngMap: Record<FileResults["lng"], string> = {
+const lngMap: Record<Language, string> = {
   da: "Danish",
   de: "German",
   en: "English",
@@ -178,70 +215,55 @@ const lngMap: Record<FileResults["lng"], string> = {
   nl: "Dutch",
   no: "Norwegian",
 };
+
 function createGemini({ apiKey }: { apiKey: string }) {
   const genAi = new GoogleGenAI({ apiKey });
 
   return async function translate({
-    source,
-    target,
-    contextJson,
-  }: { source: FileResults; target: FileResults; contextJson: Record<string, string> | null }) {
-    const sourceLng = lngMap[source.lng];
-    const targetLng = lngMap[target.lng];
+    keysToTranslate,
+    targetLanguage,
+    context,
+    enKeyValues,
+    file,
+  }: ToTranslate) {
+    const responseKeys = Object.fromEntries(keysToTranslate.map((k) => [k, { type: Type.STRING }]));
 
-    const contents = `I will provide you 3 JSON files.
-${targetLng} context file:
-${contextJson ? JSON.stringify(contextJson) : "No context provided."}
-
-${sourceLng} version
-${JSON.stringify(source.content)}
-
-${targetLng} version - this is the file you will be translating:
-${JSON.stringify(target.content)}
-
-The first file be a JSON object with which you should use as context for the translation. Try to use the context to improve the translation quality.
-The second file will be a JSON file in ${sourceLng}, and the third will be in ${targetLng}.
-I want you to translate it into ${targetLng}, however you should not override existing values, only translate missing values. Do NOT touch any existing keys in the ${targetLng} file that have a value already.
-The structure of a translation object is as follows: "k" stands for the key, and "v" stands for the value.
-If a key exists in the ${sourceLng} version, but not in the ${targetLng} version, you should add it to your output.
-Only return newly added translations, do not return the entire file.
-        `;
+    const contents = [
+      ...context.map((c) => ({
+        text: `Context ${c.path}: ${JSON.stringify(c.content)}`,
+      })),
+      {
+        text: `Translate to ${lngMap[targetLanguage]} from English, preserve HTML tags and template variables denoted with {{ }}. ${JSON.stringify(enKeyValues)}`,
+      },
+    ];
 
     const result = await genAi.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       contents,
       config: {
+        systemInstruction: `You are an expert ${lngMap[targetLanguage]} translator, translate the requested keys. Attempt to re-use the same vocabulary used in the provided context files.`,
         responseMimeType: "application/json",
         responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              k: { type: Type.STRING },
-              v: { type: Type.STRING },
-            },
-            propertyOrdering: ["k", "v"],
-          },
+          type: Type.OBJECT,
+          properties: responseKeys,
+          required: keysToTranslate,
+          propertyOrdering: keysToTranslate,
         },
       },
     });
 
-    if (!result.text) return null;
+    if (!result.text) {
+      return null;
+    }
 
     try {
-      const parsed = JSON.parse(result.text) as { k: string; v: string }[];
-      log(`[${target.path}] Successfully translated file`);
+      const parsed = JSON.parse(result.text);
+      log(`[${file}] Successfully translated file`);
 
-      return Object.fromEntries(
-        parsed
-          // remove hallucinations
-          // biome-ignore lint/style/noNonNullAssertion: <explanation>
-          .filter(({ k }) => k in source.json!)
-          .map(({ k, v }) => [k, v]),
-      );
+      return parsed;
     } catch (error) {
-      console.error(`[${target.path}] Failed to parse Gemini response: `, error);
-      console.error(`[${target.path}] Response text:`, result.text);
+      console.error(`[${file}] Failed to parse Gemini response: `, error);
+      console.error(`[${file}] Response text:`, result.text);
 
       return null;
     }

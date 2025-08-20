@@ -3,7 +3,7 @@ import path from "node:path";
 import * as core from "@actions/core";
 import { getOctokit } from "@actions/github";
 import { GoogleGenAI } from "@google/genai";
-import parseGitDiff from 'parse-git-diff';
+import parseGitDiff from "parse-git-diff";
 import z from "zod";
 
 import { createLogger } from "../utils";
@@ -169,47 +169,48 @@ async function getChangelogs(octokit: ReturnType<typeof getOctokit>, config: Con
 
       config[repositoryName].cursor = baseSha;
 
-      const {
-        data,
-      } = await octokit.rest.repos.compareCommitsWithBasehead({
+      const { data } = await octokit.rest.repos.compareCommitsWithBasehead({
         owner: organization,
         repo: repositoryName,
         basehead: `${cursor}...${baseSha}`,
         mediaType: {
           // The "diff" format returns all changed files, as opposed to the "json" format
-          format: 'diff',
+          format: "diff",
         },
       });
 
       const parsedData = parseGitDiff(data as unknown as string, {});
-      const filteredData = parsedData.files.filter((file) => 'path' in file && file.path != null && file.path.toLowerCase().includes('changelog.md'));
+      const filteredData = parsedData.files.filter(
+        (file) =>
+          "path" in file && file.path != null && file.path.toLowerCase().includes("changelog.md"),
+      );
 
       filteredData.forEach((fileChange) => {
-        let projectString = '';
-        let fileChangeString = '';
+        let projectString = "";
+        let fileChangeString = "";
 
         fileChange.chunks.forEach((chunk) => {
-          if (('changes' in chunk) && chunk.changes != null) {
+          if ("changes" in chunk && chunk.changes != null) {
             chunk.changes.forEach((change) => {
-              if (change.type === 'UnchangedLine') {
-                projectString = projectString.concat(`${change.content}\n`)
+              if (change.type === "UnchangedLine") {
+                projectString = projectString.concat(`${change.content}\n`);
               }
 
-              if (change.type === 'AddedLine') {
+              if (change.type === "AddedLine") {
                 fileChangeString = fileChangeString.concat(`${change.content}\n`);
-          }
-            })
+              }
+            });
           }
         });
 
-        const regex = /# ([^\n]+)/
+        const regex = /# ([^\n]+)/;
         const matches = regex.exec(projectString) || [];
 
-          changelogs.push({
+        changelogs.push({
           projectName: matches[1],
           diff: fileChangeString,
-          });
         });
+      });
     }),
   );
 
