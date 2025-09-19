@@ -222,7 +222,7 @@ function createGemini({ apiKey }: { apiKey: string }) {
 
   return (prompt: string) =>
     genAi.models
-      .generateContent({ model: "gemini-2.0-flash", contents: prompt })
+      .generateContent({ model: "gemini-2.5-flash", contents: prompt })
       .then((result) => result.text ?? "");
 }
 
