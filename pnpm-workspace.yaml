@@ -1,2 +1,3 @@
 onlyBuiltDependencies:
   - '@biomejs/biome'
+useNodeVersion: 24.13.0

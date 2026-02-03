@@ -103,3 +103,5 @@ lib/**/*
 
 # GitHub Actions Secrets (local)
 .secrets
+
+translation-tryout.cjs

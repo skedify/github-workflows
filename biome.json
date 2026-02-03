@@ -1,8 +1,6 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "organizeImports": {
-    "enabled": true
-  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
@@ -35,8 +33,6 @@
     "defaultBranch": "develop"
   },
   "files": {
-    "ignore": [
-      "**/dist/**"
-    ]
+    "includes": ["**", "!**/dist"]
   }
 }
