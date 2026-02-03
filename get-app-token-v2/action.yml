@@ -12,4 +12,4 @@ outputs:
     description: The installation access token for the GitHub App corresponding to and the current repository.
 runs:
   using: "node24"
-  main: "./dist/index.js"
+  main: "./dist/main.js"

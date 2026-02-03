@@ -2,4 +2,4 @@ name: "Branch Tagger"
 description: "Create a release on GitHub for every commit on `rc/**` or `hotfix/**` branches"
 runs:
   using: "node24"
-  main: "./dist/index.js"
+  main: "./dist/main.js"
