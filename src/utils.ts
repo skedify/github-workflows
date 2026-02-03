@@ -179,13 +179,7 @@ export class OctokitApi {
     return data;
   }
 
-  async #createTree({
-    tree,
-    base_tree,
-  }: {
-    base_tree: string;
-    tree: CreateTreeParams["tree"];
-  }) {
+  async #createTree({ tree, base_tree }: { base_tree: string; tree: CreateTreeParams["tree"] }) {
     log({ func: "createTree", message: `base_tree - ${base_tree}` });
 
     const { data } = await this.#octokit.rest.git.createTree({
@@ -429,7 +423,7 @@ function isBase64(strRaw: string | Buffer): boolean {
   // Handle buffer inputs
 
   const str = Buffer.isBuffer(strRaw) ? strRaw.toString("utf8") : strRaw;
-  const notBase64 = /[^A-Z0-9+\/=]/i;
+  const notBase64 = /[^A-Z0-9+/=]/i;
 
   const isString = typeof str === "string";
 

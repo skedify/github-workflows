@@ -4,7 +4,7 @@ import * as core from "@actions/core";
 import { getOctokit } from "@actions/github";
 import { GoogleGenAI } from "@google/genai";
 import parseGitDiff from "parse-git-diff";
-import z from "zod";
+import * as z from "zod";
 
 import { createLogger } from "../utils";
 
@@ -222,7 +222,7 @@ function createGemini({ apiKey }: { apiKey: string }) {
 
   return (prompt: string) =>
     genAi.models
-      .generateContent({ model: "gemini-2.5-flash", contents: prompt })
+      .generateContent({ model: "gemini-3-flash-preview", contents: prompt })
       .then((result) => result.text ?? "");
 }
 

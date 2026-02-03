@@ -151,9 +151,7 @@ function createTag({
 }
 
 async function hasTag({ name, releaseName }: { name: string; releaseName: string }) {
-  const { stdout: tagOutput } = await exec.getExecOutput(
-    `git tag --list \"${name}@${releaseName}\"`,
-  );
+  const { stdout: tagOutput } = await exec.getExecOutput(`git tag --list "${name}@${releaseName}"`);
 
   return tagOutput.length > 0;
 }
@@ -168,7 +166,7 @@ async function getLatestExistingTag({
   type: "rc" | "hotfix";
 }) {
   const { stdout: lastestTagOutput } = await exec.getExecOutput(
-    `git tag --list --sort=-version:refname \"${name}@${releaseName}-${type}.*\" | head -n 1`,
+    `git tag --list --sort=-version:refname "${name}@${releaseName}-${type}.*" | head -n 1`,
   );
 
   const [latestTag] = lastestTagOutput.split("\n");

@@ -1,5 +1,5 @@
 name: "Branch Tagger"
 description: "Create a release on GitHub for every commit on `rc/**` or `hotfix/**` branches"
 runs:
-  using: "node20"
+  using: "node24"
   main: "./dist/index.js"

@@ -1,5 +1,5 @@
 import * as core from "@actions/core";
-import z from "zod";
+import * as z from "zod";
 
 import { translator } from "./translator";
 

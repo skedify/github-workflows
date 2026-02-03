@@ -1,6 +1,6 @@
 import { getOctokit } from "@actions/github";
 import { GoogleGenAI, Type } from "@google/genai";
-import { OctokitApi, createLogger } from "../utils";
+import { createLogger, OctokitApi } from "../utils";
 
 const log = createLogger("translator");
 type ToTranslate = {
@@ -238,7 +238,7 @@ function createGemini({ apiKey }: { apiKey: string }) {
     ];
 
     const result = await genAi.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents,
       config: {
         systemInstruction: `You are an expert ${lngMap[targetLanguage]} translator, translate the requested keys. Attempt to re-use the same vocabulary used in the provided context files.`,

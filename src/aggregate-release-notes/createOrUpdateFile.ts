@@ -39,7 +39,7 @@ export async function createOrUpdateFile(
       path: params.path,
     });
   } catch (error) {
-    // @ts-ignore
+    // @ts-expect-error
     if (error.status === 404) {
       // Do nothing, create the file below
     } else {

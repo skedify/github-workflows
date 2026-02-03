@@ -133,7 +133,7 @@ async function getLatestExistingTag({
   type: "rc" | "hotfix";
 }) {
   const { stdout: lastestTagOutput } = await exec.getExecOutput(
-    `git tag --list --sort=-version:refname \"${name}@${releaseName}-${type}.*\" | head -n 1`,
+    `git tag --list --sort=-version:refname "${name}@${releaseName}-${type}.*" | head -n 1`,
   );
 
   const [latestTag] = lastestTagOutput.split("\n");
