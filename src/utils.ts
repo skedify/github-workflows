@@ -152,7 +152,7 @@ export class OctokitApi {
         ref: this.#branch,
       });
       return true;
-    } catch (e) {
+    } catch (_e) {
       return false;
     }
   }
@@ -192,7 +192,7 @@ export class OctokitApi {
     return data;
   }
 
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+  // biome-ignore lint/suspicious/noExplicitAny: ignore me
   async #createBlob(contents: any, type: string) {
     if (type === "commit") {
       return contents;
@@ -225,7 +225,7 @@ export class OctokitApi {
         ref: `heads/${ref}`,
       });
       return x.data.object.sha;
-    } catch (e) {
+    } catch (_e) {
       // console.log(e);
     }
   }
@@ -291,7 +291,7 @@ export class OctokitApi {
     batchSize?: number;
   }) {
     try {
-      if (!changes || !changes.length) {
+      if (!changes?.length) {
         throw new Error("No changes provided");
       }
 
@@ -414,7 +414,7 @@ export class OctokitApi {
 
 function chunk<T>(input: T[], size: number) {
   return input.reduce((arr, item, idx) => {
-    // biome-ignore lint/performance/noAccumulatingSpread: <explanation>
+    // biome-ignore lint/performance/noAccumulatingSpread: ignore me
     return idx % size === 0 ? [...arr, [item]] : [...arr.slice(0, -1), [...arr.slice(-1)[0], item]];
   }, [] as T[][]);
 }
@@ -434,7 +434,7 @@ function isBase64(strRaw: string | Buffer): boolean {
     } else {
       invalidType = typeof str;
       // @ts-expect-error
-      // biome-ignore lint/suspicious/noPrototypeBuiltins: <explanation>
+      // biome-ignore lint/suspicious/noPrototypeBuiltins: ignore me
       if (invalidType === "object" && str.constructor && str.constructor.hasOwnProperty("name")) {
         // @ts-expect-error
         invalidType = str.constructor.name;

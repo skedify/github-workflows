@@ -11,7 +11,7 @@ import { createLogger } from "../utils";
 import { createOrUpdateFile } from "./createOrUpdateFile";
 
 const organization = "skedify";
-const CHANGELOG_NAME = "CHANGELOG.md";
+const _CHANGELOG_NAME = "CHANGELOG.md";
 const branchRefs = {
   MAIN_BRANCH: core.getInput("mainBranch", { required: true }),
   RELEASE_NOTE_BRANCH: "release-notes/main",
@@ -157,7 +157,7 @@ async function getChangelogs(octokit: ReturnType<typeof getOctokit>, config: Con
 
   await Promise.all(
     Object.entries(config).map(async ([repositoryName, c]) => {
-      const { baseBranch, cursor, path } = c;
+      const { baseBranch, cursor } = c;
 
       const defaultBranch = await octokit.rest.git.getRef({
         owner: organization,

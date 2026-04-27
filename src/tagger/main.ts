@@ -101,7 +101,7 @@ function determineNextTag({
   if (typeof currentVersion !== "string")
     throw new Error(`Couldn't determine next ${type} version, aborting... config: ${latestTag}`);
 
-  const nextVersion = Number.parseInt(currentVersion) + 1;
+  const nextVersion = Number.parseInt(currentVersion, 10) + 1;
 
   if (Number.isNaN(nextVersion))
     throw new Error(`Couldn't determine next ${type} version, aborting... config: ${latestTag}`);

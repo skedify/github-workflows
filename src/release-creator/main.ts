@@ -37,7 +37,7 @@ const WORKFLOW_NAME = "release-branch-tagger.yml";
           log(`Checking for branch: ${releaseBranchName}`);
           await octokitInstance.getBranch(releaseBranchName);
           log("Found release branch!");
-        } catch (err) {
+        } catch (_err) {
           // branch does not exist
           // create branch
           log("Release branch not found!");

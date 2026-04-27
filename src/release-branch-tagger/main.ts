@@ -131,7 +131,7 @@ function determineNextTag({
   if (typeof currentVersion !== "string")
     throw new Error(`Couldn't determine next ${type} version, aborting... config: ${latestTag}`);
 
-  const nextVersion = Number.parseInt(currentVersion) + 1;
+  const nextVersion = Number.parseInt(currentVersion, 10) + 1;
 
   return createTag({ name, releaseName, type, version: nextVersion });
 }
