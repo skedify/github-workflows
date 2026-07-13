@@ -1,3 +1,4 @@
-onlyBuiltDependencies:
-  - '@biomejs/biome'
-useNodeVersion: 24.13.0
+allowBuilds:
+  '@biomejs/biome': true
+  '@google/genai': true
+  protobufjs: true
