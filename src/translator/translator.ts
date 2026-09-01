@@ -238,7 +238,7 @@ function createGemini({ apiKey }: { apiKey: string }) {
     ];
 
     const result = await genAi.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.7-flash",
       contents,
       config: {
         systemInstruction: `You are an expert ${lngMap[targetLanguage]} translator, translate the requested keys. Attempt to re-use the same vocabulary used in the provided context files.`,
